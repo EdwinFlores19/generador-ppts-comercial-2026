@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grow Deck Automator - SEIDOR Perú</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <!-- Sidebar Overlay for Mobile View -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Premium Loading Spinner Overlay and Stepper -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-container">
+            <div class="spinner-outer">
+                <div class="spinner"></div>
+                <div class="spinner-inner-icon"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+            </div>
+            <div class="loading-text" id="loadingText">Scraping e Investigando en la Web...</div>
+            
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+            
+            <div class="loading-steps" id="loadingStepsContainer">
+                <div class="loading-step active" id="step1">
+                    <i class="fa-solid fa-magnifying-glass step-icon"></i>
+                    <span>Investigando huella digital (Scraping)</span>
+                </div>
+                <div class="loading-step" id="step2">
+                    <i class="fa-solid fa-gears step-icon"></i>
+                    <span>Analizando complejidad técnica</span>
+                </div>
+                <div class="loading-step" id="step3">
+                    <i class="fa-solid fa-coins step-icon"></i>
+                    <span>Simulando en Motor Financiero</span>
+                </div>
+                <div class="loading-step" id="step4">
+                    <i class="fa-solid fa-file-powerpoint step-icon"></i>
+                    <span>Generando entregable PPTX nativo</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Header -->
+    <nav>
+        <div style="display: flex; align-items: center; gap: 0.8rem;">
+            <button class="hamburger-btn" id="hamburgerBtn" title="Menú de Navegación">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <a href="#" class="nav-logo">
+                <i class="fa-solid fa-file-powerpoint"></i>
+                <span>GROW Deck <span class="highlight">Automator</span></span>
+            </a>
+        </div>
+        <div class="nav-actions">
+            <div class="nav-badge">
+                <i class="fa-solid fa-building-circle-check"></i> SEIDOR Perú - Preventa SAP S/4HANA
+            </div>
+            <button class="btn-settings" id="openSettingsBtn" title="Ajustes de Configuración Comercial">
+                <i class="fa-solid fa-sliders"></i> Ajustes del Sistema
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Workspace Container -->
+    <div class="container">
+        
+        <!-- Left Column: Input Form -->
+        <div>
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-bolt"></i>
+                    <h2>Nueva Propuesta</h2>
+                </div>
+                
+                <form id="proposalForm">
+                    <div class="form-group">
+                        <label for="companyName">Nombre de la Empresa</label>
+                        <div class="input-group">
+                            <i class="fa-solid fa-briefcase"></i>
+                            <input type="text" id="companyName" class="form-control" placeholder="Ej: Alicorp S.A.A." required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="companySector">Sector Industrial (Fallback)</label>
+                        <div class="input-group">
+                            <i class="fa-solid fa-industry"></i>
+                            <select id="companySector" class="form-control" required>
+                                <option value="Minería y Recursos">Minería y Recursos</option>
+                                <option value="Construcción e Infraestructura">Construcción e Infraestructura</option>
+                                <option value="Alimentos y Agroindustria">Alimentos y Agroindustria</option>
+                                <option value="Retail y Consumo Masivo">Retail y Consumo Masivo</option>
+                                <option value="Manufactura Industrial">Manufactura Industrial</option>
+                                <option value="Servicios Comerciales" selected>Servicios Comerciales</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="annualRevenue">Facturación Anual Proyectada (USD)</label>
+                        <div class="input-group">
+                            <i class="fa-solid fa-coins"></i>
+                            <input type="number" id="annualRevenue" class="form-control" value="15000000" min="1000000">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="complexityMode">Modo de Complejidad</label>
+                        <div class="input-group">
+                            <i class="fa-solid fa-gears"></i>
+                            <select id="complexityMode" class="form-control">
+                                <option value="auto">Automático (Scraper determina)</option>
+                                <option value="alta">Forzar Complejidad Alta (11 Slides)</option>
+                                <option value="media">Forzar Complejidad Media (10 Slides)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Advanced Pricing Config Accordion -->
+                    <div class="accordion-header" id="configToggle">
+                        <span>Configuración de Tarifas y Licencias</span>
+                        <i class="fa-solid fa-chevron-down" id="configArrow"></i>
+                    </div>
+                    
+                    <div class="accordion-content" id="configContent">
+                        <div class="form-group">
+                            <label for="consultingRate">Tarifa de Consultoría ($/Hora)</label>
+                            <div class="input-group">
+                                <i class="fa-solid fa-clock"></i>
+                                <input type="number" id="consultingRate" class="form-control" value="60">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="supportPercentage">AMS - Soporte Post Go-Live (% de Impl.)</label>
+                            <div class="input-group">
+                                <i class="fa-solid fa-headset"></i>
+                                <input type="number" id="supportPercentage" class="form-control" value="15">
+                            </div>
+                        </div>
+                        
+                        <div style="font-size: 0.8rem; margin: 0.8rem 0; color: var(--color-secondary); font-weight:600;">
+                            Licencias Anuales SaaS por Módulo (USD):
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+                            <div class="form-group">
+                                <label for="licFI">FI (Finanzas)</label>
+                                <input type="number" id="licFI" class="form-control" style="padding-left: 0.8rem;" value="20000">
+                            </div>
+                            <div class="form-group">
+                                <label for="licCO">CO (Controlling)</label>
+                                <input type="number" id="licCO" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                            </div>
+                            <div class="form-group">
+                                <label for="licMM">MM (Materiales)</label>
+                                <input type="number" id="licMM" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                            </div>
+                            <div class="form-group">
+                                <label for="licSD">SD (Ventas)</label>
+                                <input type="number" id="licSD" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                            </div>
+                            <div class="form-group">
+                                <label for="licPP">PP (Producción)</label>
+                                <input type="number" id="licPP" class="form-control" style="padding-left: 0.8rem;" value="20000">
+                            </div>
+                            <div class="form-group">
+                                <label for="licPS">PS (Proyectos)</label>
+                                <input type="number" id="licPS" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button type="button" class="btn" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(0, 168, 235, 0.4); box-shadow: none;" id="previewBtn">
+                            <i class="fa-solid fa-eye"></i> Previsualizar
+                        </button>
+                        <button type="submit" class="btn" id="submitBtn">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generar PPTX
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Right Column: Live Statistics & History -->
+        <div>
+            <!-- Dashboard Stats -->
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <h2>Métricas de la Última Propuesta</h2>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Inversión Inicial Facturable (IGV Inc)</div>
+                        <div class="stat-value stat-highlight" id="dashboardInvestment">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Duración Estimada</div>
+                        <div class="stat-value" id="dashboardWeeks">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Retorno de Inversión (ROI)</div>
+                        <div class="stat-value" id="dashboardRoi">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Período de Recupero</div>
+                        <div class="stat-value" id="dashboardPayback">-</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Real-Time Slide Mockup Preview Deck -->
+            <div class="card" id="previewCard" style="display: none;">
+                <div class="card-title">
+                    <i class="fa-solid fa-desktop"></i>
+                    <h2>Previsualización Estructural del Pitch Deck</h2>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.8rem; margin-bottom: 1.2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08);" id="previewTabs">
+                    <!-- Tabs will be rendered here dynamically -->
+                </div>
+                
+                <!-- The mock slide container -->
+                <div style="background: linear-gradient(135deg, #0B2347 0%, #07152B 100%); border: 1.5px solid var(--color-secondary); border-radius: 12px; padding: 2rem; min-height: 270px; position: relative; box-shadow: inset 0 0 20px rgba(0, 168, 235, 0.15);" id="slideMockup">
+                    <h3 style="color: white; font-family: var(--font-heading); font-size: 1.4rem; margin-bottom: 0.4rem;" id="mockTitle">Título de la Lámina</h3>
+                    <p style="color: var(--color-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: 1.2rem;" id="mockSubtitle">Subtítulo de contexto</p>
+                    <ul style="color: var(--color-text-muted); font-size: 0.95rem; margin-left: 1.2rem; line-height: 1.8;" id="mockBullets">
+                        <!-- Bullets -->
+                    </ul>
+                    <div style="position: absolute; bottom: 1rem; right: 1rem; color: rgba(255,255,255,0.4); font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fa-solid fa-file-powerpoint" style="color: var(--color-secondary);"></i> SEIDOR Perú | Diapositiva <span id="mockSlideNum">1</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Historical Table List -->
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-history"></i>
+                    <h2>Historial de Propuestas Generadas</h2>
+                </div>
+                
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Empresa</th>
+                                <th>Complejidad</th>
+                                <th>Sector</th>
+                                <th>Inversión Facturable</th>
+                                <th>Semanas</th>
+                                <th>ROI</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
+                                    Cargando historial...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal Ajustes del Sistema -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-sliders"></i> Ajustes del Sistema (Tarifas Globales)</h3>
+                <button class="modal-close" id="closeSettingsModalBtn">&times;</button>
+            </div>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label for="sysConsultingRate">Tarifa Hora Consultor Base (USD)</label>
+                    <div class="input-group">
+                        <i class="fa-solid fa-clock"></i>
+                        <input type="number" id="sysConsultingRate" class="form-control" step="0.01" min="1" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="sysSupportPercentage">Porcentaje Soporte AMS Anual (como fracción, ej: 0.15)</label>
+                    <div class="input-group">
+                        <i class="fa-solid fa-headset"></i>
+                        <input type="number" id="sysSupportPercentage" class="form-control" step="0.01" min="0" max="1" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="sysSaasMargin">Margen Recargo Licencias SaaS (como fracción, ej: 0.20)</label>
+                    <div class="input-group">
+                        <i class="fa-solid fa-percent"></i>
+                        <input type="number" id="sysSaasMargin" class="form-control" step="0.01" min="0" max="1" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="sysRoiYears">Años ROI de Proyección (ej: 5)</label>
+                    <div class="input-group">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <input type="number" id="sysRoiYears" class="form-control" step="1" min="1" required>
+                    </div>
+                </div>
+                <!-- Parámetros de localización peruana adicionales -->
+                <div class="form-group">
+                    <label for="sysIgvFactor">Factor IGV Local (ej: 0.18)</label>
+                    <div class="input-group">
+                        <i class="fa-solid fa-calculator"></i>
+                        <input type="number" id="sysIgvFactor" class="form-control" step="0.01" min="0" max="1" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="sysExchangeRate">Tipo de Cambio USD a PEN (ej: 3.78)</label>
+                    <div class="input-group">
+                        <i class="fa-solid fa-money-bill-transfer"></i>
+                        <input type="number" id="sysExchangeRate" class="form-control" step="0.001" min="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" id="cancelSettingsBtn">Cancelar</button>
+                    <button type="submit" class="btn-save">Guardar Ajustes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script SPA logic -->
+    <script>
+        // Toggle Accordion Panel
+        const configToggle = document.getElementById('configToggle');
+        const configContent = document.getElementById('configContent');
+        const configArrow = document.getElementById('configArrow');
+        
+        configToggle.addEventListener('click', () => {
+            if (configContent.style.display === 'block') {
+                configContent.style.display = 'none';
+                configArrow.className = 'fa-solid fa-chevron-down';
+            } else {
+                configContent.style.display = 'block';
+                configArrow.className = 'fa-solid fa-chevron-up';
+            }
+        });
+
+        // Modal de Ajustes
+        const settingsModal = document.getElementById('settingsModal');
+        const openSettingsBtn = document.getElementById('openSettingsBtn');
+        const closeSettingsModalBtn = document.getElementById('closeSettingsModalBtn');
+        const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
+        const settingsForm = document.getElementById('settingsForm');
+
+        function loadSystemConfig() {
+            fetch('/api/config')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.tarifa_hora_consultor) {
+                        document.getElementById('sysConsultingRate').value = data.tarifa_hora_consultor.valor;
+                        document.getElementById('consultingRate').value = data.tarifa_hora_consultor.valor;
+                    }
+                    if (data.porcentaje_ams) {
+                        document.getElementById('sysSupportPercentage').value = data.porcentaje_ams.valor;
+                        document.getElementById('supportPercentage').value = Math.round(data.porcentaje_ams.valor * 100);
+                    }
+                    if (data.margen_saas) {
+                        document.getElementById('sysSaasMargin').value = data.margen_saas.valor;
+                    }
+                    if (data.anos_roi) {
+                        document.getElementById('sysRoiYears').value = data.anos_roi.valor;
+                    }
+                    if (data.factor_igv) {
+                        document.getElementById('sysIgvFactor').value = data.factor_igv.valor;
+                    }
+                    if (data.tipo_cambio_pen) {
+                        document.getElementById('sysExchangeRate').value = data.tipo_cambio_pen.valor;
+                    }
+                })
+                .catch(err => console.error("Error al cargar configuración:", err));
+        }
+
+        openSettingsBtn.addEventListener('click', () => {
+            loadSystemConfig();
+            settingsModal.style.display = 'flex';
+        });
+
+        const closeModal = () => { settingsModal.style.display = 'none'; };
+        closeSettingsModalBtn.addEventListener('click', closeModal);
+        cancelSettingsBtn.addEventListener('click', closeModal);
+
+        settingsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                tarifa_hora_consultor: document.getElementById('sysConsultingRate').value,
+                porcentaje_ams: document.getElementById('sysSupportPercentage').value,
+                margen_saas: document.getElementById('sysSaasMargin').value,
+                anos_roi: document.getElementById('sysRoiYears').value,
+                factor_igv: document.getElementById('sysIgvFactor').value,
+                tipo_cambio_pen: document.getElementById('sysExchangeRate').value
+            };
+
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    alert(data.message || "Configuración guardada correctamente.");
+                    closeModal();
+                    loadSystemConfig();
+                }
+            })
+            .catch(err => {
+                console.error("Error guardando config:", err);
+                alert("Ocurrió un error al guardar los ajustes del sistema.");
+            });
+        });
+
+        let proposalsCache = []; // Cache list loaded in fetchHistory
+
+        // Load History
+        function fetchHistory() {
+            fetch('/api/proposals')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('historyTableBody');
+                    tbody.innerHTML = '';
+                    proposalsCache = data;
+                    
+                    if (data.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
+                                    No hay propuestas en la base de datos local.
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+                    
+                    // Prepopulate dashboard with the most recent proposal
+                    const latest = data[0];
+                    let displayInvestment = '$ ' + latest.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    
+                    // Cargar visualización bimoneda del dashboard de forma interactiva si existe en el preview JSON
+                    if (latest.preview_json && latest.preview_json.length > 0) {
+                        const econSlide = latest.preview_json.find(s => s.title.includes("Propuesta Económica"));
+                        if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
+                            const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
+                            if (facturableBullet) {
+                                const parts = facturableBullet.split("Facturable: ");
+                                if (parts.length > 1) {
+                                    const rawCost = parts[1];
+                                    // Separar USD y PEN
+                                    const costParts = rawCost.split(" / ");
+                                    if (costParts.length > 1) {
+                                        displayInvestment = `${costParts[0]}<span style="font-size: 0.8rem; color: var(--color-text-muted); display: block; margin-top: 0.2rem;">${costParts[1]}</span>`;
+                                    } else {
+                                        displayInvestment = rawCost;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    document.getElementById('dashboardInvestment').innerHTML = displayInvestment;
+                    document.getElementById('dashboardWeeks').innerText = latest.total_weeks + ' Semanas';
+                    document.getElementById('dashboardRoi').innerText = latest.roi_five_years + ' %';
+                    document.getElementById('dashboardPayback').innerText = latest.payback_period + ' Años';
+                    
+                    data.forEach(prop => {
+                        const tr = document.createElement('tr');
+                        
+                        const compBadge = prop.complexity === 'Alta' 
+                            ? `<span class="badge badge-alta">Alta</span>`
+                            : `<span class="badge badge-media">Media</span>`;
+                            
+                        let tableInvStr = '$ ' + prop.total_investment.toLocaleString('en-US', {maximumFractionDigits: 0});
+                        
+                        // Extract dual currency totals for the table as well
+                        if (prop.preview_json && prop.preview_json.length > 0) {
+                            const econSlide = prop.preview_json.find(s => s.title.includes("Propuesta Económica"));
+                            if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
+                                const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
+                                if (facturableBullet) {
+                                    const parts = facturableBullet.split("Facturable: ");
+                                    if (parts.length > 1) {
+                                        tableInvStr = parts[1].replace(".00", "").replace(".00", ""); // Clean decimals for short display
+                                    }
+                                }
+                            }
+                        }
+                        
+                        tr.innerHTML = `
+                            <td>
+                                <a href="#" onclick="event.preventDefault(); viewHistoricalPreview(${prop.id})" style="color: white; text-decoration: underline; font-weight: bold;" title="Click para previsualizar">
+                                    ${prop.company_name}
+                                </a>
+                            </td>
+                            <td>${compBadge}</td>
+                            <td>${prop.sector || '-'}</td>
+                            <td>${tableInvStr}</td>
+                            <td>${prop.total_weeks} sem</td>
+                            <td>${prop.roi_five_years} %</td>
+                            <td>
+                                <a href="/download/${prop.id}" class="btn-download">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> Descargar
+                                </a>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => {
+                    console.error("Error loading history:", err);
+                    document.getElementById('historyTableBody').innerHTML = `
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #dc3545; padding: 2rem;">
+                                Error al conectar con el servidor local.
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+
+        function viewHistoricalPreview(id) {
+            const prop = proposalsCache.find(p => p.id === id);
+            if (prop && prop.preview_json && prop.preview_json.length > 0) {
+                renderPreviewDeck(prop.preview_json);
+            } else {
+                alert("Esta propuesta no cuenta con datos de previsualización.");
+            }
+        }
+
+        // Hamburger and Sidebar Toggle logic for mobile
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebar = document.querySelector('.container > div:first-child');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        if (hamburgerBtn && sidebar && sidebarOverlay) {
+            hamburgerBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('show-sidebar');
+                sidebarOverlay.classList.toggle('show');
+            });
+            
+            sidebarOverlay.addEventListener('click', () => {
+                sidebar.classList.remove('show-sidebar');
+                sidebarOverlay.classList.remove('show');
+            });
+        }
+
+        // Toggle Accordion Panel
+        const configToggle = document.getElementById('configToggle');
+        const configContent = document.getElementById('configContent');
+        const configArrow = document.getElementById('configArrow');
+        
+        configToggle.addEventListener('click', () => {
+            if (configContent.style.display === 'block') {
+                configContent.style.display = 'none';
+                configArrow.className = 'fa-solid fa-chevron-down';
+            } else {
+                configContent.style.display = 'block';
+                configArrow.className = 'fa-solid fa-chevron-up';
+            }
+        });
+
+        // Modal de Ajustes
+        const settingsModal = document.getElementById('settingsModal');
+        const openSettingsBtn = document.getElementById('openSettingsBtn');
+        const closeSettingsModalBtn = document.getElementById('closeSettingsModalBtn');
+        const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
+        const settingsForm = document.getElementById('settingsForm');
+
+        function loadSystemConfig() {
+            fetch('/api/config')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.tarifa_hora_consultor) {
+                        document.getElementById('sysConsultingRate').value = data.tarifa_hora_consultor.valor;
+                        document.getElementById('consultingRate').value = data.tarifa_hora_consultor.valor;
+                    }
+                    if (data.porcentaje_ams) {
+                        document.getElementById('sysSupportPercentage').value = data.porcentaje_ams.valor;
+                        document.getElementById('supportPercentage').value = Math.round(data.porcentaje_ams.valor * 100);
+                    }
+                    if (data.margen_saas) {
+                        document.getElementById('sysSaasMargin').value = data.margen_saas.valor;
+                    }
+                    if (data.anos_roi) {
+                        document.getElementById('sysRoiYears').value = data.anos_roi.valor;
+                    }
+                    if (data.factor_igv) {
+                        document.getElementById('sysIgvFactor').value = data.factor_igv.valor;
+                    }
+                    if (data.tipo_cambio_pen) {
+                        document.getElementById('sysExchangeRate').value = data.tipo_cambio_pen.valor;
+                    }
+                })
+                .catch(err => console.error("Error al cargar configuración:", err));
+        }
+
+        openSettingsBtn.addEventListener('click', () => {
+            loadSystemConfig();
+            settingsModal.style.display = 'flex';
+        });
+
+        const closeModal = () => { settingsModal.style.display = 'none'; };
+        closeSettingsModalBtn.addEventListener('click', closeModal);
+        cancelSettingsBtn.addEventListener('click', closeModal);
+
+        settingsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                tarifa_hora_consultor: document.getElementById('sysConsultingRate').value,
+                porcentaje_ams: document.getElementById('sysSupportPercentage').value,
+                margen_saas: document.getElementById('sysSaasMargin').value,
+                anos_roi: document.getElementById('sysRoiYears').value,
+                factor_igv: document.getElementById('sysIgvFactor').value,
+                tipo_cambio_pen: document.getElementById('sysExchangeRate').value
+            };
+
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    alert(data.message || "Configuración guardada correctamente.");
+                    closeModal();
+                    loadSystemConfig();
+                }
+            })
+            .catch(err => {
+                console.error("Error guardando config:", err);
+                alert("Ocurrió un error al guardar los ajustes del sistema.");
+            });
+        });
+
+        let proposalsCache = []; // Cache list loaded in fetchHistory
+
+        // Load History
+        function fetchHistory() {
+            fetch('/api/proposals')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('historyTableBody');
+                    tbody.innerHTML = '';
+                    proposalsCache = data;
+                    
+                    if (data.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
+                                    No hay propuestas en la base de datos local.
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+                    
+                    // Prepopulate dashboard with the most recent proposal
+                    const latest = data[0];
+                    let displayInvestment = '$ ' + latest.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    
+                    // Cargar visualización bimoneda del dashboard de forma interactiva si existe en el preview JSON
+                    if (latest.preview_json && latest.preview_json.length > 0) {
+                        const econSlide = latest.preview_json.find(s => s.title.includes("Propuesta Económica"));
+                        if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
+                            const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
+                            if (facturableBullet) {
+                                const parts = facturableBullet.split("Facturable: ");
+                                if (parts.length > 1) {
+                                    const rawCost = parts[1];
+                                    // Separar USD y PEN
+                                    const costParts = rawCost.split(" / ");
+                                    if (costParts.length > 1) {
+                                        displayInvestment = `${costParts[0]}<span style="font-size: 0.8rem; color: var(--color-text-muted); display: block; margin-top: 0.2rem;">${costParts[1]}</span>`;
+                                    } else {
+                                        displayInvestment = rawCost;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    document.getElementById('dashboardInvestment').innerHTML = displayInvestment;
+                    document.getElementById('dashboardWeeks').innerText = latest.total_weeks + ' Semanas';
+                    document.getElementById('dashboardRoi').innerText = latest.roi_five_years + ' %';
+                    document.getElementById('dashboardPayback').innerText = latest.payback_period + ' Años';
+                    
+                    data.forEach(prop => {
+                        const tr = document.createElement('tr');
+                        
+                        const compBadge = prop.complexity === 'Alta' 
+                            ? `<span class="badge badge-alta">Alta</span>`
+                            : `<span class="badge badge-media">Media</span>`;
+                            
+                        let tableInvStr = '$ ' + prop.total_investment.toLocaleString('en-US', {maximumFractionDigits: 0});
+                        
+                        // Extract dual currency totals for the table as well
+                        if (prop.preview_json && prop.preview_json.length > 0) {
+                            const econSlide = prop.preview_json.find(s => s.title.includes("Propuesta Económica"));
+                            if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
+                                const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
+                                if (facturableBullet) {
+                                    const parts = facturableBullet.split("Facturable: ");
+                                    if (parts.length > 1) {
+                                        tableInvStr = parts[1].replace(".00", "").replace(".00", ""); // Clean decimals for short display
+                                    }
+                                }
+                            }
+                        }
+                        
+                        tr.innerHTML = `
+                            <td>
+                                <a href="#" onclick="event.preventDefault(); viewHistoricalPreview(${prop.id})" style="color: white; text-decoration: underline; font-weight: bold;" title="Click para previsualizar">
+                                    ${prop.company_name}
+                                </a>
+                            </td>
+                            <td>${compBadge}</td>
+                            <td>${prop.sector || '-'}</td>
+                            <td>${tableInvStr}</td>
+                            <td>${prop.total_weeks} sem</td>
+                            <td>${prop.roi_five_years} %</td>
+                            <td>
+                                <a href="/download/${prop.id}" class="btn-download">
+                                    <i class="fa-solid fa-cloud-arrow-down"></i> Descargar
+                                </a>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => {
+                    console.error("Error loading history:", err);
+                    document.getElementById('historyTableBody').innerHTML = `
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #dc3545; padding: 2rem;">
+                                Error al conectar con el servidor local.
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+
+        function viewHistoricalPreview(id) {
+            const prop = proposalsCache.find(p => p.id === id);
+            if (prop && prop.preview_json && prop.preview_json.length > 0) {
+                renderPreviewDeck(prop.preview_json);
+            } else {
+                alert("Esta propuesta no cuenta con datos de previsualización.");
+            }
+        }
+
+        // Form Submit & Preview Actions
+        const form = document.getElementById('proposalForm');
+        const previewBtn = document.getElementById('previewBtn');
+
+        const runPreviewOrGenerate = (isGenerate) => {
+            const companyName = document.getElementById('companyName').value.trim();
+            if (!companyName) {
+                alert("Por favor, ingrese el nombre de la empresa.");
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const previewBtn = document.getElementById('previewBtn');
+            const overlay = document.getElementById('loadingOverlay');
+            const loadText = document.getElementById('loadingText');
+            const progressBarFill = document.getElementById('progressBarFill');
+            
+            // Cerrar menú lateral en móviles al iniciar acción
+            if (sidebar) {
+                sidebar.classList.remove('show-sidebar');
+            }
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.remove('show');
+            }
+            
+            submitBtn.disabled = true;
+            previewBtn.disabled = true;
+            overlay.style.display = 'flex';
+            
+            // Reset loading stepper elements
+            const stepsIds = ['step1', 'step2', 'step3', 'step4'];
+            stepsIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.className = 'loading-step';
+            });
+            progressBarFill.style.width = '10%';
+            
+            // Stepper simulation config
+            const stepStates = isGenerate ? [
+                { text: "Investigando huella digital (Scraping)...", active: 'step1', completed: [], width: '25%' },
+                { text: "Analizando complejidad y presencia local...", active: 'step2', completed: ['step1'], width: '50%' },
+                { text: "Procesando cálculos y lectura de Excel...", active: 'step3', completed: ['step1', 'step2'], width: '75%' },
+                { text: "Inyectando datos y gráficos nativos en PowerPoint...", active: 'step4', completed: ['step1', 'step2', 'step3'], width: '90%' }
+            ] : [
+                { text: "Investigando huella digital (Scraping)...", active: 'step1', completed: [], width: '30%' },
+                { text: "Analizando complejidad técnica...", active: 'step2', completed: ['step1'], width: '60%' },
+                { text: "Generando previsualización estructural JSON...", active: 'step3', completed: ['step1', 'step2'], width: '85%' }
+            ];
+            
+            let currentStepIdx = 0;
+            const updateStepperUI = (idx) => {
+                const state = stepStates[idx];
+                loadText.innerText = state.text;
+                progressBarFill.style.width = state.width;
+                
+                stepsIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    if (id === state.active) {
+                        el.className = 'loading-step active';
+                    } else if (state.completed.includes(id)) {
+                        el.className = 'loading-step completed';
+                        const icon = el.querySelector('i');
+                        if (icon) icon.className = 'fa-solid fa-circle-check step-icon';
+                    } else {
+                        el.className = 'loading-step';
+                    }
+                });
+            };
+            
+            updateStepperUI(0);
+            const interval = setInterval(() => {
+                if (currentStepIdx < stepStates.length - 1) {
+                    currentStepIdx++;
+                    updateStepperUI(currentStepIdx);
+                }
+            }, 2500);
+            
+            const payload = {
+                company_name: companyName,
+                sector: document.getElementById('companySector').value,
+                annual_revenue: document.getElementById('annualRevenue').value,
+                complexity_mode: document.getElementById('complexityMode').value,
+                consulting_rate: document.getElementById('consultingRate').value,
+                support_percentage: document.getElementById('supportPercentage').value,
+                modular_licenses: {
+                    FI: document.getElementById('licFI').value,
+                    CO: document.getElementById('licCO').value,
+                    MM: document.getElementById('licMM').value,
+                    SD: document.getElementById('licSD').value,
+                    PP: document.getElementById('licPP').value,
+                    PS: document.getElementById('licPS').value
+                }
+            };
+            
+            const endpoint = isGenerate ? '/api/generate' : '/api/preview';
+            
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                clearInterval(interval);
+                
+                // Finalize loading steps visually before closing
+                progressBarFill.style.width = '100%';
+                stepsIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.className = 'loading-step completed';
+                        const icon = el.querySelector('i');
+                        if (icon) icon.className = 'fa-solid fa-circle-check step-icon';
+                    }
+                });
+                
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    submitBtn.disabled = false;
+                    previewBtn.disabled = false;
+                    
+                    if (data.error) {
+                        alert("Error: " + data.error);
+                    } else {
+                        // Renderizar previsualización estructurada
+                        renderPreviewDeck(data.slides_preview);
+                        
+                        if (isGenerate) {
+                            fetchHistory();
+                            form.reset();
+                            loadSystemConfig();
+                            document.getElementById('configContent').style.display = 'none';
+                            document.getElementById('configArrow').className = 'fa-solid fa-chevron-down';
+                        }
+                    }
+                }, 500);
+            })
+            .catch(err => {
+                clearInterval(interval);
+                overlay.style.display = 'none';
+                submitBtn.disabled = false;
+                previewBtn.disabled = false;
+                alert("Ocurrió un error en el servidor local. Revise la consola.");
+            });
+        };
+
+        previewBtn.addEventListener('click', () => runPreviewOrGenerate(false));
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            runPreviewOrGenerate(true);
+        });
+
+        // Previsualización Carrusel/Tabs de Diapositivas
+        let activeSlides = [];
+        
+        function renderPreviewDeck(slides) {
+            if (!slides || slides.length === 0) return;
+            activeSlides = slides;
+            
+            const previewCard = document.getElementById('previewCard');
+            const previewTabs = document.getElementById('previewTabs');
+            
+            previewCard.style.display = 'block';
+            previewTabs.innerHTML = '';
+            
+            slides.forEach((slide, idx) => {
+                const btn = document.createElement('button');
+                btn.innerText = `Lám. ${slide.num}`;
+                btn.style.cssText = `
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(0, 168, 235, 0.2);
+                    color: var(--color-text-muted);
+                    padding: 0.4rem 0.8rem;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    white-space: nowrap;
+                    transition: all var(--transition-speed);
+                `;
+                
+                if (idx === 0) {
+                    btn.style.background = 'var(--color-secondary)';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = 'var(--color-secondary)';
+                }
+                
+                btn.addEventListener('click', () => {
+                    // Cambiar estilo de pestañas activas
+                    Array.from(previewTabs.children).forEach(child => {
+                        child.style.background = 'rgba(255, 255, 255, 0.05)';
+                        child.style.color = 'var(--color-text-muted)';
+                        child.style.borderColor = 'rgba(0, 168, 235, 0.2)';
+                    });
+                    btn.style.background = 'var(--color-secondary)';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = 'var(--color-secondary)';
+                    
+                    showMockSlide(slide);
+                });
+                
+                previewTabs.appendChild(btn);
+            });
+            
+            // Mostrar la primera por defecto
+            showMockSlide(slides[0]);
+            
+            // Scroll suave a la sección
+            previewCard.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function showMockSlide(slide) {
+            document.getElementById('mockTitle').innerText = slide.title;
+            document.getElementById('mockSubtitle').innerText = slide.subtitle;
+            document.getElementById('mockSlideNum').innerText = slide.num;
+            
+            const bulletsUl = document.getElementById('mockBullets');
+            bulletsUl.innerHTML = '';
+            
+            slide.bullets.forEach(bullet => {
+                const li = document.createElement('li');
+                li.style.marginBottom = '0.5rem';
+                li.innerHTML = bullet;
+                bulletsUl.appendChild(li);
+            });
+        }
+
+        // Initialize Page
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchHistory();
+            loadSystemConfig();
+        });
+    </script>
+</body>
+</html>
