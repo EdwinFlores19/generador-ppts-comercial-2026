@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+venv/
+.venv/
+env/
+
+# Database
+*.db
+*.sqlite
+
+# Generated files
+generated_decks/
+*.pptx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SonarQube scanner
+sonar-scanner/
+.scannerwork/
+*.zip
+
+# Test artifacts
+test_*.pptx
+.pytest_cache/

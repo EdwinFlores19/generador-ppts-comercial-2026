@@ -67,6 +67,9 @@
             <div class="nav-badge">
                 <i class="fa-solid fa-building-circle-check"></i> SEIDOR Perú - Preventa SAP S/4HANA
             </div>
+            <a href="/chatbot" class="btn-settings" style="text-decoration: none;" title="Chatbot IA para generar propuestas">
+                <i class="fa-solid fa-robot"></i> Chatbot IA
+            </a>
             <button class="btn-settings" id="openSettingsBtn" title="Ajustes de Configuración Comercial">
                 <i class="fa-solid fa-sliders"></i> Ajustes del Sistema
             </button>
@@ -342,6 +345,16 @@
 
     <!-- Script SPA logic -->
     <script>
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Toggle Accordion Panel
         const configToggle = document.getElementById('configToggle');
         const configContent = document.getElementById('configContent');
@@ -471,9 +484,9 @@
                                     // Separar USD y PEN
                                     const costParts = rawCost.split(" / ");
                                     if (costParts.length > 1) {
-                                        displayInvestment = `${costParts[0]}<span style="font-size: 0.8rem; color: var(--color-text-muted); display: block; margin-top: 0.2rem;">${costParts[1]}</span>`;
+                                        displayInvestment = `${escapeHtml(costParts[0])}<span style="font-size: 0.8rem; color: var(--color-text-muted); display: block; margin-top: 0.2rem;">${escapeHtml(costParts[1])}</span>`;
                                     } else {
-                                        displayInvestment = rawCost;
+                                        displayInvestment = escapeHtml(rawCost);
                                     }
                                 }
                             }
@@ -508,14 +521,16 @@
                             }
                         }
                         
+                        const safeName = escapeHtml(prop.company_name);
+                        const safeSector = escapeHtml(prop.sector || '-');
                         tr.innerHTML = `
                             <td>
                                 <a href="#" onclick="event.preventDefault(); viewHistoricalPreview(${prop.id})" style="color: white; text-decoration: underline; font-weight: bold;" title="Click para previsualizar">
-                                    ${prop.company_name}
+                                    ${safeName}
                                 </a>
                             </td>
                             <td>${compBadge}</td>
-                            <td>${prop.sector || '-'}</td>
+                            <td>${safeSector}</td>
                             <td>${tableInvStr}</td>
                             <td>${prop.total_weeks} sem</td>
                             <td>${prop.roi_five_years} %</td>
@@ -566,213 +581,6 @@
             });
         }
 
-        // Toggle Accordion Panel
-        const configToggle = document.getElementById('configToggle');
-        const configContent = document.getElementById('configContent');
-        const configArrow = document.getElementById('configArrow');
-        
-        configToggle.addEventListener('click', () => {
-            if (configContent.style.display === 'block') {
-                configContent.style.display = 'none';
-                configArrow.className = 'fa-solid fa-chevron-down';
-            } else {
-                configContent.style.display = 'block';
-                configArrow.className = 'fa-solid fa-chevron-up';
-            }
-        });
-
-        // Modal de Ajustes
-        const settingsModal = document.getElementById('settingsModal');
-        const openSettingsBtn = document.getElementById('openSettingsBtn');
-        const closeSettingsModalBtn = document.getElementById('closeSettingsModalBtn');
-        const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
-        const settingsForm = document.getElementById('settingsForm');
-
-        function loadSystemConfig() {
-            fetch('/api/config')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.tarifa_hora_consultor) {
-                        document.getElementById('sysConsultingRate').value = data.tarifa_hora_consultor.valor;
-                        document.getElementById('consultingRate').value = data.tarifa_hora_consultor.valor;
-                    }
-                    if (data.porcentaje_ams) {
-                        document.getElementById('sysSupportPercentage').value = data.porcentaje_ams.valor;
-                        document.getElementById('supportPercentage').value = Math.round(data.porcentaje_ams.valor * 100);
-                    }
-                    if (data.margen_saas) {
-                        document.getElementById('sysSaasMargin').value = data.margen_saas.valor;
-                    }
-                    if (data.anos_roi) {
-                        document.getElementById('sysRoiYears').value = data.anos_roi.valor;
-                    }
-                    if (data.factor_igv) {
-                        document.getElementById('sysIgvFactor').value = data.factor_igv.valor;
-                    }
-                    if (data.tipo_cambio_pen) {
-                        document.getElementById('sysExchangeRate').value = data.tipo_cambio_pen.valor;
-                    }
-                })
-                .catch(err => console.error("Error al cargar configuración:", err));
-        }
-
-        openSettingsBtn.addEventListener('click', () => {
-            loadSystemConfig();
-            settingsModal.style.display = 'flex';
-        });
-
-        const closeModal = () => { settingsModal.style.display = 'none'; };
-        closeSettingsModalBtn.addEventListener('click', closeModal);
-        cancelSettingsBtn.addEventListener('click', closeModal);
-
-        settingsForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const payload = {
-                tarifa_hora_consultor: document.getElementById('sysConsultingRate').value,
-                porcentaje_ams: document.getElementById('sysSupportPercentage').value,
-                margen_saas: document.getElementById('sysSaasMargin').value,
-                anos_roi: document.getElementById('sysRoiYears').value,
-                factor_igv: document.getElementById('sysIgvFactor').value,
-                tipo_cambio_pen: document.getElementById('sysExchangeRate').value
-            };
-
-            fetch('/api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    alert("Error: " + data.error);
-                } else {
-                    alert(data.message || "Configuración guardada correctamente.");
-                    closeModal();
-                    loadSystemConfig();
-                }
-            })
-            .catch(err => {
-                console.error("Error guardando config:", err);
-                alert("Ocurrió un error al guardar los ajustes del sistema.");
-            });
-        });
-
-        let proposalsCache = []; // Cache list loaded in fetchHistory
-
-        // Load History
-        function fetchHistory() {
-            fetch('/api/proposals')
-                .then(res => res.json())
-                .then(data => {
-                    const tbody = document.getElementById('historyTableBody');
-                    tbody.innerHTML = '';
-                    proposalsCache = data;
-                    
-                    if (data.length === 0) {
-                        tbody.innerHTML = `
-                            <tr>
-                                <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
-                                    No hay propuestas en la base de datos local.
-                                </td>
-                            </tr>
-                        `;
-                        return;
-                    }
-                    
-                    // Prepopulate dashboard with the most recent proposal
-                    const latest = data[0];
-                    let displayInvestment = '$ ' + latest.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                    
-                    // Cargar visualización bimoneda del dashboard de forma interactiva si existe en el preview JSON
-                    if (latest.preview_json && latest.preview_json.length > 0) {
-                        const econSlide = latest.preview_json.find(s => s.title.includes("Propuesta Económica"));
-                        if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
-                            const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
-                            if (facturableBullet) {
-                                const parts = facturableBullet.split("Facturable: ");
-                                if (parts.length > 1) {
-                                    const rawCost = parts[1];
-                                    // Separar USD y PEN
-                                    const costParts = rawCost.split(" / ");
-                                    if (costParts.length > 1) {
-                                        displayInvestment = `${costParts[0]}<span style="font-size: 0.8rem; color: var(--color-text-muted); display: block; margin-top: 0.2rem;">${costParts[1]}</span>`;
-                                    } else {
-                                        displayInvestment = rawCost;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    document.getElementById('dashboardInvestment').innerHTML = displayInvestment;
-                    document.getElementById('dashboardWeeks').innerText = latest.total_weeks + ' Semanas';
-                    document.getElementById('dashboardRoi').innerText = latest.roi_five_years + ' %';
-                    document.getElementById('dashboardPayback').innerText = latest.payback_period + ' Años';
-                    
-                    data.forEach(prop => {
-                        const tr = document.createElement('tr');
-                        
-                        const compBadge = prop.complexity === 'Alta' 
-                            ? `<span class="badge badge-alta">Alta</span>`
-                            : `<span class="badge badge-media">Media</span>`;
-                            
-                        let tableInvStr = '$ ' + prop.total_investment.toLocaleString('en-US', {maximumFractionDigits: 0});
-                        
-                        // Extract dual currency totals for the table as well
-                        if (prop.preview_json && prop.preview_json.length > 0) {
-                            const econSlide = prop.preview_json.find(s => s.title.includes("Propuesta Económica"));
-                            if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
-                                const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
-                                if (facturableBullet) {
-                                    const parts = facturableBullet.split("Facturable: ");
-                                    if (parts.length > 1) {
-                                        tableInvStr = parts[1].replace(".00", "").replace(".00", ""); // Clean decimals for short display
-                                    }
-                                }
-                            }
-                        }
-                        
-                        tr.innerHTML = `
-                            <td>
-                                <a href="#" onclick="event.preventDefault(); viewHistoricalPreview(${prop.id})" style="color: white; text-decoration: underline; font-weight: bold;" title="Click para previsualizar">
-                                    ${prop.company_name}
-                                </a>
-                            </td>
-                            <td>${compBadge}</td>
-                            <td>${prop.sector || '-'}</td>
-                            <td>${tableInvStr}</td>
-                            <td>${prop.total_weeks} sem</td>
-                            <td>${prop.roi_five_years} %</td>
-                            <td>
-                                <a href="/download/${prop.id}" class="btn-download">
-                                    <i class="fa-solid fa-cloud-arrow-down"></i> Descargar
-                                </a>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                })
-                .catch(err => {
-                    console.error("Error loading history:", err);
-                    document.getElementById('historyTableBody').innerHTML = `
-                        <tr>
-                            <td colspan="7" style="text-align: center; color: #dc3545; padding: 2rem;">
-                                Error al conectar con el servidor local.
-                            </td>
-                        </tr>
-                    `;
-                });
-        }
-
-        function viewHistoricalPreview(id) {
-            const prop = proposalsCache.find(p => p.id === id);
-            if (prop && prop.preview_json && prop.preview_json.length > 0) {
-                renderPreviewDeck(prop.preview_json);
-            } else {
-                alert("Esta propuesta no cuenta con datos de previsualización.");
-            }
-        }
-
         // Form Submit & Preview Actions
         const form = document.getElementById('proposalForm');
         const previewBtn = document.getElementById('previewBtn');
@@ -785,7 +593,6 @@
             }
             
             const submitBtn = document.getElementById('submitBtn');
-            const previewBtn = document.getElementById('previewBtn');
             const overlay = document.getElementById('loadingOverlay');
             const loadText = document.getElementById('loadingText');
             const progressBarFill = document.getElementById('progressBarFill');
@@ -804,9 +611,14 @@
             
             // Reset loading stepper elements
             const stepsIds = ['step1', 'step2', 'step3', 'step4'];
-            stepsIds.forEach(id => {
+            const originalIcons = ['fa-magnifying-glass', 'fa-gears', 'fa-coins', 'fa-file-powerpoint'];
+            stepsIds.forEach((id, idx) => {
                 const el = document.getElementById(id);
-                if (el) el.className = 'loading-step';
+                if (el) {
+                    el.className = 'loading-step';
+                    const icon = el.querySelector('i');
+                    if (icon) icon.className = 'fa-solid ' + originalIcons[idx] + ' step-icon';
+                }
             });
             progressBarFill.style.width = '10%';
             
@@ -998,7 +810,7 @@
             slide.bullets.forEach(bullet => {
                 const li = document.createElement('li');
                 li.style.marginBottom = '0.5rem';
-                li.innerHTML = bullet;
+                li.textContent = bullet;
                 bulletsUl.appendChild(li);
             });
         }

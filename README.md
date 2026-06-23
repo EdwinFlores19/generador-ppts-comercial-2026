@@ -68,11 +68,11 @@ graph TD
 1. **Configurar Variables de Enorno para Endpoints de IA:**
    Cree o configure las variables en su archivo `.env` o directamente en el `docker-compose.yml`:
    ```bash
-   # Configuración de Endpoints de IA y Scraping
-   JOULE_AI_ENDPOINT=https://api.sap-joule.seidor.pe/v1/optimize
-   JOULE_API_KEY=seidor-secret-key-prod-998822
-   SCRAPER_MAX_RETRIES=3
-   SCRAPER_BACKOFF_FACTOR=2.0
+    # Configuración de Endpoints de IA y Scraping
+    JOULE_AI_ENDPOINT=https://tu-endpoint-ejemplo.com/v1/optimize
+    JOULE_API_KEY=tu-api-key-aqui
+    SCRAPER_MAX_RETRIES=3
+    SCRAPER_BACKOFF_FACTOR=2.0
    ```
 
 2. **Levantar los servicios:**
@@ -98,8 +98,8 @@ graph TD
 
 2. **Configurar Entorno Local (Windows Powershell):**
    ```powershell
-   $env:JOULE_AI_ENDPOINT="https://api.sap-joule.seidor.pe/v1/optimize"
-   $env:JOULE_API_KEY="seidor-secret-key-dev"
+   $env:JOULE_AI_ENDPOINT="https://tu-endpoint-ejemplo.com/v1/optimize"
+   $env:JOULE_API_KEY="tu-api-key-aqui"
    ```
 
 3. **Inicializar y Estructurar Base de Datos SQLite:**

@@ -387,15 +387,15 @@ tr:hover td {
 }
 
 .badge-alta {
-    background: rgba(220, 53, 69, 0.15);
+    background: #f8d7da;
     border: 1px solid #dc3545;
-    color: #ff6b6b;
+    color: #58151c;
 }
 
 .badge-media {
-    background: rgba(255, 193, 7, 0.15);
+    background: #fff3cd;
     border: 1px solid #ffc107;
-    color: #ffd54f;
+    color: #664d03;
 }
 
 .btn-download {

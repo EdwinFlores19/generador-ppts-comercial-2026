@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+.venv/
+*.db
+generated_decks/
+*.pptx
+.git/
+.gitignore
+.sonar-scanner/
+.scannerwork/
+sonar-project.properties
+Dockerfile
+docker-compose*.yml
+*.md
+test_*.py
+_serve_test.py
+test_*.pptx
+*.zip
+# *.xlsx is needed in the image (Estimador S0 V2.0.xlsx)
+# Mounted as bind volume in docker-compose for hot-reload

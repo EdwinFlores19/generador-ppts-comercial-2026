@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es" class="loading">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Chatbot IA - Preventa SAP | SEIDOR Perú</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/chatbot.css">
+</head>
+<body>
+
+<nav>
+    <div style="display: flex; align-items: center; gap: 0.8rem;">
+        <a href="/" class="nav-logo">
+            <i class="fa-solid fa-robot"></i>
+            <span>GROW Deck <span class="highlight">Chatbot IA</span></span>
+        </a>
+    </div>
+    <div class="nav-actions">
+        <div class="nav-badge">
+            <i class="fa-solid fa-building-circle-check"></i> SEIDOR Perú - Preventa SAP S/4HANA
+        </div>
+        <a href="/" class="btn-back">
+            <i class="fa-solid fa-arrow-left"></i> Volver al Inicio
+        </a>
+    </div>
+</nav>
+
+<div class="app-layout">
+
+    <!-- Sidebar: Sesiones de Chat -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fa-solid fa-comments"></i> Conversaciones</h3>
+            <button class="btn-new-chat" id="newChatBtn">
+                <i class="fa-solid fa-plus"></i> Nueva Conversación
+            </button>
+        </div>
+        <div class="session-list" id="sessionList">
+            <div style="text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem;">
+                <i class="fa-solid fa-spinner fa-spin" style="margin-right: 0.5rem;"></i> Cargando...
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="main-chat">
+
+        <!-- Chat Header -->
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <h2 id="chatTitle">Asistente IA de Preventa SEIDOR</h2>
+                <p id="chatSubtitle">Describe tu proyecto SAP y te ayudaré a generar una propuesta profesional</p>
+            </div>
+            <div class="chat-status" id="chatStatus">
+                <span class="status-dot"></span>
+                <span>Conectado</span>
+            </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="messages-container" id="messagesContainer">
+            <div class="empty-state" id="emptyState">
+                <i class="fa-solid fa-robot"></i>
+                <h2>¿En qué puedo ayudarte?</h2>
+                <p>
+                    Soy tu asistente IA de preventa SAP. Cuéntame sobre la empresa para la que
+                    necesitas una propuesta y te guiaré paso a paso para generar un PPT profesional
+                    con el branding de SEIDOR Perú.
+                </p>
+                <div class="suggestions">
+                    <span class="suggestion-chip" onclick="sendSuggestion('Necesito una propuesta SAP S/4HANA para una empresa minera en Perú')">
+                        <i class="fa-solid fa-hard-hat"></i> Empresa Minera
+                    </span>
+                    <span class="suggestion-chip" onclick="sendSuggestion('Quiero generar una propuesta GROW with SAP para un retail con 5 tiendas')">
+                        <i class="fa-solid fa-store"></i> Retail
+                    </span>
+                    <span class="suggestion-chip" onclick="sendSuggestion('Ayúdame a preparar una propuesta SAP para una empresa de alimentos')">
+                        <i class="fa-solid fa-wheat-awn"></i> Alimentos
+                    </span>
+                    <span class="suggestion-chip" onclick="sendSuggestion('Necesito una propuesta de transformación digital con SAP S/4HANA Cloud')">
+                        <i class="fa-solid fa-cloud"></i> Transformación Digital
+                    </span>
+                </div>
+            </div>
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+
+        <!-- Generate Bar (appears when AI has enough data) -->
+        <div class="generate-bar" id="generateBar">
+            <div class="gb-info">
+                <i class="fa-solid fa-circle-check"></i>
+                <span id="generateBarText">✅ Todos los datos han sido recopilados. Genera tu propuesta comercial.</span>
+            </div>
+            <button class="btn-generate-ppt" id="generateBtn">
+                <i class="fa-solid fa-file-powerpoint"></i> GENERAR PROPUESTA COMERCIAL
+            </button>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="messageInput" rows="1" placeholder="Describe tu proyecto SAP o empresa objetivo..." maxlength="2000"></textarea>
+                <button class="btn-send" id="sendBtn" title="Enviar mensaje">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="input-hint">
+                <span><i class="fa-regular fa-keyboard"></i> Presiona Enter para enviar, Shift+Enter para nueva línea</span>
+                <span>Asistente IA · Gemini 2.0 Flash</span>
+            </div>
+        </div>
+
+        <!-- Chat Footer -->
+        <div class="chat-footer">
+            Hecho por <strong>Edwin Flores</strong> - Consultor <strong>Seidor Consulting</strong> &copy; 2026
+        </div>
+    </div>
+</div>
+
+<!-- Result Modal -->
+<div class="modal-overlay" id="resultModal">
+    <div class="modal-box">
+        <h3><i class="fa-solid fa-file-powerpoint"></i> <span id="modalTitle">Propuesta Generada</span></h3>
+        <div class="modal-body">
+            <p style="color: var(--color-text-muted); margin-bottom: 1rem;" id="modalMessage">La propuesta se ha generado exitosamente.</p>
+            <div class="data-preview" id="modalDataPreview"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-secondary" onclick="closeResultModal()">Cerrar</button>
+            <a href="#" class="btn-primary" id="modalDownloadBtn">
+                <i class="fa-solid fa-download"></i> Descargar PPT
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+    let currentSessionId = null;
+    let messages = [];
+    let sending = false;
+    let proposalReady = false;
+    let extractedData = null;
+
+    // Strip structured data block from AI response before displaying
+    function stripDataBlock(text) {
+        return text.replace(/##DATA_READY[\s\S]*?##DATA_END/g, '').trim();
+    }
+
+    // Safe JSON fetch: returns parsed JSON or throws with user-friendly message
+    async function fetchJson(url, options = {}) {
+        let res;
+        try {
+            res = await fetch(url, options);
+        } catch (netErr) {
+            throw new Error('Error de red. Verifica tu conexión al servidor.');
+        }
+        const text = await res.text();
+        if (!text || text.length === 0) {
+            throw new Error('El servidor respondió vacío. Intenta de nuevo.');
+        }
+        try {
+            return JSON.parse(text);
+        } catch (parseErr) {
+            console.error('fetchJson parse error for', url, ':', text.slice(0, 300));
+            if (res.status >= 500) {
+                throw new Error('Error interno del servidor (' + res.status + ').');
+            }
+            throw new Error('Respuesta inesperada del servidor.');
+        }
+    }
+
+    // --- DOM REFS ---
+    const messagesContainer = document.getElementById('messagesContainer');
+    const emptyState = document.getElementById('emptyState');
+    const typingIndicator = document.getElementById('typingIndicator');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const sessionList = document.getElementById('sessionList');
+    const chatTitle = document.getElementById('chatTitle');
+    const chatSubtitle = document.getElementById('chatSubtitle');
+    const generateBar = document.getElementById('generateBar');
+    const generateBtn = document.getElementById('generateBtn');
+    const newChatBtn = document.getElementById('newChatBtn');
+
+    // --- ENTER TO SEND ---
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Auto-resize textarea
+    messageInput.addEventListener('input', () => {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+    newChatBtn.addEventListener('click', createNewSession);
+
+    // --- SUGGESTION CLICK ---
+    function sendSuggestion(text) {
+        messageInput.value = text;
+        sendMessage();
+    }
+
+    // --- CREATE NEW SESSION ---
+    function createNewSession() {
+        if (currentSessionId && messages.length > 0) {
+            if (!confirm('¿Estás seguro? La conversación actual se guardará antes de crear una nueva.')) return;
+        }
+        currentSessionId = null;
+        messages = [];
+        proposalReady = false;
+        extractedData = null;
+        generateBar.classList.remove('show');
+        renderMessages();
+        chatTitle.innerText = 'Asistente IA de Preventa SEIDOR';
+        chatSubtitle.innerText = 'Describe tu proyecto SAP y te ayudaré a generar una propuesta profesional';
+        messageInput.focus();
+        loadSessions();
+    }
+
+    // --- SEND MESSAGE ---
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text || sending) return;
+
+        if (!currentSessionId) {
+            await createSessionOnServer(text);
+            if (!currentSessionId) return;
+        }
+
+        messageInput.value = '';
+        messageInput.style.height = 'auto';
+
+        messages.push({ role: 'user', content: text });
+        renderMessages();
+        scrollToBottom();
+
+        sending = true;
+        sendBtn.disabled = true;
+        showTyping(true);
+
+        try {
+            const data = await fetchJson('/api/chat/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    message: text,
+                    history: messages.slice(0, -1)
+                })
+            });
+
+            if (data.error) {
+                showToast('Error: ' + data.error, 'error');
+                messages.pop();
+                renderMessages();
+                return;
+            }
+
+            messages.push({ role: 'assistant', content: stripDataBlock(data.response) });
+            renderMessages();
+            scrollToBottom();
+
+            if (data.proposal_ready) {
+                proposalReady = true;
+                extractedData = data.extracted_data;
+                generateBar.classList.add('show');
+            }
+
+            loadSessions();
+
+        } catch (err) {
+            showToast('Error de conexión con el servidor.', 'error');
+        } finally {
+            sending = false;
+            sendBtn.disabled = false;
+            showTyping(false);
+        }
+    }
+
+    // --- CREATE SESSION ON SERVER ---
+    async function createSessionOnServer(firstMessage) {
+        try {
+            const data = await fetchJson('/api/chat/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ first_message: firstMessage })
+            });
+            if (data.session_id) {
+                currentSessionId = data.session_id;
+            }
+        } catch (err) {
+            showToast('Error al crear sesión.', 'error');
+        }
+    }
+
+    // --- GENERATE PPT FROM CHAT ---
+    generateBtn.addEventListener('click', async () => {
+        if (!currentSessionId || !proposalReady) return;
+
+        generateBtn.disabled = true;
+        generateBtn.classList.add('loading');
+        generateBtn.innerHTML = '';
+
+        try {
+            const data = await fetchJson('/api/chat/generate/' + currentSessionId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (data.error) {
+                showToast('Error: ' + data.error, 'error');
+                return;
+            }
+
+            // Show success modal
+            showResultModal(data);
+
+        } catch (err) {
+            showToast('Error al generar la propuesta.', 'error');
+        } finally {
+            generateBtn.disabled = false;
+            generateBtn.classList.remove('loading');
+            generateBtn.innerHTML = '<i class="fa-solid fa-file-powerpoint"></i> GENERAR PROPUESTA COMERCIAL';
+        }
+    });
+
+    // --- RENDER MESSAGES ---
+    function renderMessages() {
+        if (messages.length === 0) {
+            emptyState.style.display = 'flex';
+            // Remove all messages except typing indicator
+            document.querySelectorAll('.message').forEach(el => el.remove());
+            return;
+        }
+
+        emptyState.style.display = 'none';
+
+        // Remove existing messages (keep typing indicator)
+        document.querySelectorAll('.message').forEach(el => el.remove());
+
+        messages.forEach((msg, idx) => {
+            const div = document.createElement('div');
+            div.className = 'message ' + msg.role;
+
+            const isLast = idx === messages.length - 1;
+
+            div.innerHTML = `
+                <div class="msg-avatar">
+                    ${msg.role === 'user' ? '<i class="fa-solid fa-user"></i>' : '<i class="fa-solid fa-robot"></i>'}
+                </div>
+                <div>
+                    <div class="msg-content">
+                        ${formatMessage(msg.content)}
+                    </div>
+                    <div class="msg-time">${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+            `;
+
+            messagesContainer.insertBefore(div, typingIndicator);
+        });
+    }
+
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function formatMessage(text) {
+        // Convert markdown-like syntax (text already sanitized)
+        let safe = escapeHtml(text);
+        let html = safe
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>')
+            .replace(/- (.*?)(<br>|$)/g, '• $1<br>');
+        return '<p>' + html.replace(/<br><br>/g, '</p><p>') + '</p>';
+    }
+
+    // --- TYPING INDICATOR ---
+    function showTyping(show) {
+        typingIndicator.classList.toggle('show', show);
+        if (show) scrollToBottom();
+    }
+
+    function scrollToBottom() {
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 50);
+    }
+
+    // --- LOAD SESSIONS ---
+    async function loadSessions() {
+        try {
+            const sessions = await fetchJson('/api/chat/sessions');
+            sessionList.innerHTML = '';
+
+            if (sessions.length === 0) {
+                sessionList.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem;">
+                        <i class="fa-regular fa-message" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i>
+                        No hay conversaciones aún
+                    </div>
+                `;
+                return;
+            }
+
+            sessions.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
+                item.innerHTML = `
+                    <div class="session-actions">
+                        <button class="session-del-btn" onclick="event.stopPropagation(); deleteSession(${s.id})" title="Eliminar">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                    <div class="session-title">${s.title || 'Conversación'}</div>
+                    <div class="session-date">${new Date(s.created_at).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                `;
+                item.addEventListener('click', () => loadSession(s.id));
+                sessionList.appendChild(item);
+            });
+        } catch (err) {
+            sessionList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #dc3545;">Error al cargar sesiones</div>';
+        }
+    }
+
+    // --- LOAD SPECIFIC SESSION ---
+    async function loadSession(sessionId) {
+        try {
+            const sessions = await fetchJson('/api/chat/sessions');
+            const session = sessions.find(s => s.id === sessionId);
+            if (!session) return;
+
+            currentSessionId = session.id;
+            messages = JSON.parse(session.messages || '[]').map(m => {
+                if (m.role === 'assistant') m.content = stripDataBlock(m.content);
+                return m;
+            });
+            chatTitle.innerText = session.title || 'Conversación';
+            chatSubtitle.innerText = messages.length + ' mensajes';
+
+            proposalReady = false;
+            extractedData = null;
+            generateBar.classList.remove('show');
+
+            if (session.proposal_data) {
+                try {
+                    const pd = JSON.parse(session.proposal_data);
+                    if (pd && pd.company_name) {
+                        proposalReady = true;
+                        extractedData = pd;
+                        generateBar.classList.add('show');
+                    }
+                } catch(e) {}
+            }
+
+            renderMessages();
+            scrollToBottom();
+            loadSessions();
+        } catch (err) {
+            showToast('Error al cargar la conversación.', 'error');
+        }
+    }
+
+    // --- DELETE SESSION ---
+    async function deleteSession(sessionId) {
+        if (!confirm('¿Eliminar esta conversación?')) return;
+        try {
+            const data = await fetchJson('/api/chat/delete/' + sessionId, { method: 'DELETE' });
+            if (data.success) {
+                if (currentSessionId === sessionId) {
+                    currentSessionId = null;
+                    messages = [];
+                    proposalReady = false;
+                    extractedData = null;
+                    generateBar.classList.remove('show');
+                    renderMessages();
+                    chatTitle.innerText = 'Asistente IA de Preventa SEIDOR';
+                    chatSubtitle.innerText = 'Describe tu proyecto SAP y te ayudaré a generar una propuesta profesional';
+                }
+                loadSessions();
+            }
+        } catch (err) {
+            showToast('Error al eliminar.', 'error');
+        }
+    }
+
+    // --- RESULT MODAL ---
+    function showResultModal(data) {
+        document.getElementById('modalTitle').innerText = 'Propuesta Generada: ' + (data.company_name || 'PPT');
+        document.getElementById('modalMessage').innerText = 'La propuesta comercial se ha generado exitosamente con todos los datos de la conversación.';
+
+        const preview = document.getElementById('modalDataPreview');
+        const safeCompany = escapeHtml(data.company_name || '-');
+        const safeSector = escapeHtml(data.sector || '-');
+        const safeComplexity = escapeHtml(data.complexity || '-');
+        preview.innerHTML = `
+            <div><span class="label">Empresa:</span> <span class="value">${safeCompany}</span></div>
+            <div><span class="label">Sector:</span> <span class="value">${safeSector}</span></div>
+            <div><span class="label">Complejidad:</span> <span class="value">${safeComplexity}</span></div>
+            <div><span class="label">Inversión Total:</span> <span class="value">${data.total_investment ? '$ ' + Number(data.total_investment).toLocaleString('en-US') : '-'} USD</span></div>
+            <div><span class="label">Duración:</span> <span class="value">${data.total_weeks || '-'} semanas</span></div>
+            <div><span class="label">ROI:</span> <span class="value">${data.roi || '-'}%</span></div>
+            <div><span class="label">Payback:</span> <span class="value">${data.payback || '-'} años</span></div>
+        `;
+
+        const downloadBtn = document.getElementById('modalDownloadBtn');
+        if (data.download_url) {
+            downloadBtn.href = data.download_url;
+            downloadBtn.style.display = 'inline-flex';
+        } else {
+            downloadBtn.style.display = 'none';
+        }
+
+        document.getElementById('resultModal').classList.add('show');
+    }
+
+    function closeResultModal() {
+        document.getElementById('resultModal').classList.remove('show');
+    }
+
+    // Close modal on overlay click
+    document.getElementById('resultModal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeResultModal();
+    });
+
+    // --- TOAST ---
+    function showToast(msg, type) {
+        const toast = document.getElementById('toast');
+        toast.className = 'toast show' + (type ? ' ' + type : '');
+        toast.innerHTML = '<i class="fa-solid fa-' + (type === 'error' ? 'circle-exclamation' : 'circle-check') + '" style="margin-right: 0.5rem;"></i> ' + escapeHtml(msg);
+        setTimeout(() => { toast.classList.remove('show'); }, 4000);
+    }
+
+    // --- FOUC Prevention ---
+    document.documentElement.classList.remove('loading');
+    document.documentElement.classList.add('loaded');
+
+    // --- INIT ---
+    window.addEventListener('DOMContentLoaded', () => {
+        loadSessions();
+        messageInput.focus();
+    });
+</script>
+
+</body>
+</html>

@@ -1,28 +1,22 @@
-# Imagen base ligera de Python
 FROM python:3.11-slim
 
-# Directorio de trabajo en el contenedor
 WORKDIR /app
 
-# Instalar dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar archivo de requerimientos
-COPY requirements.txt .
+RUN addgroup --system app && adduser --system --ingroup app app
 
-# Instalar dependencias de Python
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el código de la aplicación y la plantilla base
 COPY . .
+RUN chown -R app:app /app
 
-# Inicializar la base de datos SQLite antes de arrancar
-RUN python database_setup.py
+USER app
 
-# Exponer el puerto del servidor Flask
 EXPOSE 5000
 
-# Ejecutar el servidor web
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
