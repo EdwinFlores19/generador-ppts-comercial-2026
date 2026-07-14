@@ -73,6 +73,11 @@ def init_db():
                 if col not in existing_cols:
                     cursor.execute(alter_sql)
 
+            cursor.execute("PRAGMA table_info(proposals)")
+            proposal_cols = {row[1] for row in cursor.fetchall()}
+            if 'edition' not in proposal_cols:
+                cursor.execute("ALTER TABLE proposals ADD COLUMN edition TEXT DEFAULT 'Public'")
+
             default_params = [
                 ('tarifa_hora_consultor', 60.0, 'Tarifa por hora del consultor SAP en USD'),
                 ('porcentaje_ams', 0.15, 'Porcentaje de soporte AMS anual'),

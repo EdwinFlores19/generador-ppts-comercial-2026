@@ -13,6 +13,7 @@ from utils.sanitize import sanitize_input_string, sanitize_chat_message
 from utils.validators import EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
 from services.ai_chat import extract_data_block, validate_proposal_data
+from services.scope_items import normalize_edition
 import services.scraper
 import services.financial_engine
 import services.ppt_generator
@@ -274,6 +275,8 @@ def chat_generate_proposal(session_id):
         if complexity not in ['Alta', 'Media']:
             complexity = 'Media' if len(active_modules) <= 4 else 'Alta'
 
+        edition = normalize_edition(proposal_data.get('edition'))
+
         scraped_profile = services.scraper.get_company_profile(company_name, sector=sector)
 
         if description:
@@ -311,14 +314,16 @@ def chat_generate_proposal(session_id):
             complexity=complexity,
             financial_data=fin_results,
             output_path=ppt_path,
-            pains=proposal_data.get('pains')
+            pains=proposal_data.get('pains'),
+            edition=edition
         )
 
         slides_preview = generate_preview_data(
             company_name, sector,
             description or scraped_profile['description'],
             complexity, fin_results,
-            pains=proposal_data.get('pains')
+            pains=proposal_data.get('pains'),
+            edition=edition
         )
         preview_json_str = json.dumps(slides_preview)
 
@@ -329,15 +334,16 @@ def chat_generate_proposal(session_id):
                     INSERT INTO proposals (
                         company_name, complexity, sector, description, active_modules,
                         total_weeks, total_hours, consulting_cost, licensing_cost, support_cost,
-                        total_investment, savings_annual, roi_five_years, payback_period, ppt_path, preview_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        total_investment, savings_annual, roi_five_years, payback_period, ppt_path, preview_json,
+                        edition
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     company_name, complexity, sector, description or scraped_profile['description'],
                     ', '.join(active_modules),
                     summary['total_weeks'], summary['total_hours'], summary['consulting_cost'],
                     summary['licensing_cost'], summary['support_cost'], summary['total_investment'],
                     summary['savings_annual'], summary['roi_five_years'], summary['payback_period'],
-                    ppt_path, preview_json_str
+                    ppt_path, preview_json_str, edition
                 ))
                 proposal_id = cursor.lastrowid
 

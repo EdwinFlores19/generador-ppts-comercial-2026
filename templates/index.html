@@ -125,8 +125,19 @@
                             <i class="fa-solid fa-gears"></i>
                             <select id="complexityMode" class="form-control">
                                 <option value="auto">Automático (Scraper determina)</option>
-                                <option value="alta">Forzar Complejidad Alta (11 Slides)</option>
-                                <option value="media">Forzar Complejidad Media (10 Slides)</option>
+                                <option value="alta">Forzar Complejidad Alta (12 Slides)</option>
+                                <option value="media">Forzar Complejidad Media (11 Slides)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sapEdition">Edición SAP S/4HANA Cloud</label>
+                        <div class="input-group">
+                            <i class="fa-solid fa-cloud"></i>
+                            <select id="sapEdition" class="form-control">
+                                <option value="Public">Public Edition (GROW with SAP)</option>
+                                <option value="Private">Private Edition (RISE with SAP)</option>
                             </select>
                         </div>
                     </div>
@@ -676,6 +687,7 @@
                 sector: document.getElementById('companySector').value,
                 annual_revenue: document.getElementById('annualRevenue').value,
                 complexity_mode: document.getElementById('complexityMode').value,
+                edition: document.getElementById('sapEdition').value,
                 consulting_rate: document.getElementById('consultingRate').value,
                 support_percentage: document.getElementById('supportPercentage').value,
                 modular_licenses: {

@@ -12,6 +12,7 @@ from models.database import get_db_connection
 from utils.sanitize import sanitize_input_string
 from utils.validators import validate_inputs, EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
+from services.scope_items import normalize_edition
 import services.scraper
 import services.financial_engine
 import services.ppt_generator
@@ -37,10 +38,12 @@ def get_proposals():
                     except (json.JSONDecodeError, TypeError):
                         log.warning("preview_json corrupto para propuesta ID=%s", r['id'])
 
+                row_keys = r.keys()
                 proposals.append({
                     'id': r['id'],
                     'company_name': r['company_name'],
                     'complexity': r['complexity'],
+                    'edition': r['edition'] if 'edition' in row_keys else 'Public',
                     'sector': r['sector'],
                     'description': r['description'],
                     'active_modules': r['active_modules'],
@@ -137,6 +140,7 @@ def preview_proposal():
         support_percentage = validation_res['support_percentage']
         modular_licenses = validation_res['modular_licenses']
         complexity_mode = data.get('complexity_mode', 'auto')
+        edition = normalize_edition(data.get('edition'))
 
         scraped_profile = services.scraper.get_company_profile(company_name, sector=sector_input)
         complexity = scraped_profile['complexity']
@@ -160,12 +164,14 @@ def preview_proposal():
             'modular_licenses': modular_licenses
         }
         fin_results = services.financial_engine.calculate_financials(active_modules_list, config)
-        slides_preview = generate_preview_data(company_name, sector, description, complexity, fin_results)
+        slides_preview = generate_preview_data(company_name, sector, description, complexity, fin_results,
+                                               edition=edition)
 
         return jsonify({
             'success': True,
             'company_name': company_name,
             'complexity': complexity,
+            'edition': edition,
             'sector': sector,
             'total_investment': fin_results['summary']['total_investment'],
             'total_investment_net': fin_results['summary']['total_investment_net'],
@@ -218,6 +224,7 @@ def generate_proposal():
         support_percentage = validation_res['support_percentage']
         modular_licenses = validation_res['modular_licenses']
         complexity_mode = data.get('complexity_mode', 'auto')
+        edition = normalize_edition(data.get('edition'))
 
         scraped_profile = services.scraper.get_company_profile(company_name, sector=sector_input)
         complexity = scraped_profile['complexity']
@@ -243,7 +250,8 @@ def generate_proposal():
         fin_results = services.financial_engine.calculate_financials(active_modules_list, config)
         summary = fin_results['summary']
 
-        slides_preview = generate_preview_data(company_name, sector, description, complexity, fin_results)
+        slides_preview = generate_preview_data(company_name, sector, description, complexity, fin_results,
+                                               edition=edition)
         preview_json_str = json.dumps(slides_preview)
 
         output_dir = current_app.config.get('OUTPUT_DIR', 'generated_decks')
@@ -257,7 +265,8 @@ def generate_proposal():
             description=description,
             complexity=complexity,
             financial_data=fin_results,
-            output_path=ppt_path
+            output_path=ppt_path,
+            edition=edition
         )
 
         with closing(get_db_connection()) as conn:
@@ -267,14 +276,15 @@ def generate_proposal():
                     INSERT INTO proposals (
                         company_name, complexity, sector, description, active_modules,
                         total_weeks, total_hours, consulting_cost, licensing_cost, support_cost,
-                        total_investment, savings_annual, roi_five_years, payback_period, ppt_path, preview_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        total_investment, savings_annual, roi_five_years, payback_period, ppt_path, preview_json,
+                        edition
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     company_name, complexity, sector, description, active_modules_str,
                     summary['total_weeks'], summary['total_hours'], summary['consulting_cost'],
                     summary['licensing_cost'], summary['support_cost'], summary['total_investment'],
                     summary['savings_annual'], summary['roi_five_years'], summary['payback_period'],
-                    ppt_path, preview_json_str
+                    ppt_path, preview_json_str, edition
                 ))
                 proposal_id = cursor.lastrowid
 
@@ -283,6 +293,7 @@ def generate_proposal():
             'proposal_id': proposal_id,
             'company_name': company_name,
             'complexity': complexity,
+            'edition': edition,
             'sector': sector,
             'total_investment': summary['total_investment'],
             'total_weeks': summary['total_weeks'],

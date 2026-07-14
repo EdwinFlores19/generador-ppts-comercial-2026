@@ -1,5 +1,7 @@
 import logging
 
+from services.scope_items import EDITION_LABELS, get_scope_items, normalize_edition
+
 log = logging.getLogger("preview")
 
 
@@ -10,7 +12,10 @@ DEFAULT_PREVIEW_PAINS = {
 }
 
 
-def generate_preview_data(company_name, sector, description, complexity, financial_data, pains=None):
+def generate_preview_data(company_name, sector, description, complexity, financial_data, pains=None,
+                          edition="Public"):
+    edition = normalize_edition(edition)
+    ed = EDITION_LABELS[edition]
     summary = financial_data['summary']
     modules = financial_data['modules']
 
@@ -29,10 +34,11 @@ def generate_preview_data(company_name, sector, description, complexity, financi
         {
             "num": 1,
             "title": "Portada Corporativa SEIDOR",
-            "subtitle": "GROW with SAP S/4HANA Public Cloud",
+            "subtitle": f"{ed['programa']} – {ed['nombre']}",
             "bullets": [
                 f"Propuesta de Transformación Digital para: {company_name}",
                 f"Sector Industrial de Enfoque: {sector}",
+                f"Edición propuesta: {ed['nombre']} ({ed['programa']})",
                 "Presentado por: SEIDOR Perú - Lead Solution Architecture & Preventa SAP"
             ]
         },
@@ -89,6 +95,18 @@ def generate_preview_data(company_name, sector, description, complexity, financi
             ]
         })
         current_num += 1
+
+    scope_bullets = [
+        f"{mod}: " + ", ".join(f"{sid} ({name})" for sid, name in items)
+        for mod, items in get_scope_items(list(modules.keys()))
+    ]
+    slides.append({
+        "num": current_num,
+        "title": "Alcance Detallado: Scope Items SAP Best Practices",
+        "subtitle": f"Procesos preconfigurados activados en {ed['nombre']}",
+        "bullets": scope_bullets or ["Alcance modular estándar de SAP Best Practices."]
+    })
+    current_num += 1
 
     slides.extend([
         {

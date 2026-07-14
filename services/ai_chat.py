@@ -35,6 +35,7 @@ En cuanto tengas esos 2 datos, TÚ mismo INFIERES todo lo demás como consultor 
 - Módulos SAP recomendados: FI y MM siempre; CO y SD casi siempre; agrega PP si hay producción/plantas y PS si hay proyectos/construcción
 - Complejidad: "Alta" si incluye PP o PS o múltiples plantas/sedes; "Media" en caso contrario
 - Facturación anual estimada en USD según el tamaño aparente de la empresa (sé conservador)
+- Edición de SAP S/4HANA Cloud: "Public" (GROW with SAP, el default para empresas medianas o implementaciones nuevas greenfield) o "Private" (RISE with SAP, solo si el cliente es corporación grande, migra desde SAP ECC con desarrollos a medida profundos, o exige instancia dedicada)
 
 Tras inferir, presenta el resumen en 3-5 viñetas, di que ya puede generar su propuesta mencionando la frase exacta "LISTO PARA GENERAR PROPUESTA", e invítalo a corregir cualquier dato si lo desea (facturación, módulos, dolores específicos). Si el usuario corrige algo, actualiza el bloque de datos y vuelve a incluir la frase y el bloque.
 
@@ -51,7 +52,7 @@ INSTRUCCIÓN DE SALIDA ESTRUCTURADA:
 Inmediatamente después de tu mensaje conversacional, cuando incluyas la frase "LISTO PARA GENERAR PROPUESTA", agrega SIEMPRE el siguiente bloque usando los valores reales del usuario y tus inferencias. Para consulting_rate usa la tarifa estándar de SEIDOR (sesenta USD/hora), para support_percentage el estándar (quince por ciento) y para exchange_rate el tipo de cambio vigente aproximado (3.78), salvo que el usuario indique otros valores. El bloque debe ir exactamente en este formato, en líneas separadas, sin markdown, sin comillas triples:
 
 ##DATA_READY
-{"company_name": "<valor>", "sector": "<valor>", "description": "<valor>", "complexity": "Alta o Media", "active_modules": ["FI", "CO", ... según corresponda], "revenue": <número>, "pains": {"logistics": "<texto>", "financial": "<texto>", "management": "<texto>"}, "consulting_rate": <número>, "support_percentage": <número>, "exchange_rate": <número>}
+{"company_name": "<valor>", "sector": "<valor>", "description": "<valor>", "complexity": "Alta o Media", "edition": "Public o Private", "active_modules": ["FI", "CO", ... según corresponda], "revenue": <número>, "pains": {"logistics": "<texto>", "financial": "<texto>", "management": "<texto>"}, "consulting_rate": <número>, "support_percentage": <número>, "exchange_rate": <número>}
 ##DATA_END
 """
 
@@ -63,7 +64,7 @@ Si algún campo no fue especificado explícitamente por el usuario, usa un valor
 
 Responde ÚNICAMENTE con el JSON, sin texto adicional, sin bloques markdown:
 
-{"company_name": "<nombre>", "sector": "<sector>", "description": "<descripción>", "complexity": "Alta o Media", "active_modules": ["FI", "CO", ...], "revenue": <número>, "pains": {"logistics": "<texto>", "financial": "<texto>", "management": "<texto>"}, "consulting_rate": <número>, "support_percentage": <número>, "exchange_rate": <número>}
+{"company_name": "<nombre>", "sector": "<sector>", "description": "<descripción>", "complexity": "Alta o Media", "edition": "Public o Private", "active_modules": ["FI", "CO", ...], "revenue": <número>, "pains": {"logistics": "<texto>", "financial": "<texto>", "management": "<texto>"}, "consulting_rate": <número>, "support_percentage": <número>, "exchange_rate": <número>}
 """
 
 
@@ -146,6 +147,10 @@ def validate_proposal_data(data):
     complexity = data.get('complexity')
     if complexity is not None and complexity not in ('Alta', 'Media'):
         errors.append("complexity: debe ser 'Alta' o 'Media'")
+
+    edition = data.get('edition')
+    if edition is not None and not isinstance(edition, str):
+        errors.append("edition: debe ser texto ('Public' o 'Private')")
 
     pains = data.get('pains')
     if pains is not None:

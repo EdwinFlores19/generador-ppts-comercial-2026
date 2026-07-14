@@ -10,6 +10,10 @@ import logging
 from datetime import datetime
 from lxml import etree
 
+from services.scope_items import (
+    EDITION_LABELS, get_scope_items, normalize_edition
+)
+
 log = logging.getLogger("ppt_generator")
 
 # Configurar parser XML seguro contra vulnerabilidades XXE (XML External Entity Injection)
@@ -239,7 +243,7 @@ def style_table_cell(cell, text, is_even=False, bold=False, align=PP_ALIGN.LEFT,
     _set_text(cell.text_frame.paragraphs[0], text, FONT_BODY, font_size, bold, COLOR_TEXT, align)
 
 
-def _add_slide_cover(prs, layout_cover, company_name, sector):
+def _add_slide_cover(prs, layout_cover, company_name, sector, edition):
     """
     Añade la portada corporativa usando el layout oficial de SEIDOR
     (fondo azul noche con ondas y logo centrado). El texto se ubica
@@ -248,19 +252,21 @@ def _add_slide_cover(prs, layout_cover, company_name, sector):
     slide = prs.slides.add_slide(layout_cover)
     remove_slide_placeholders(slide)
 
+    ed = EDITION_LABELS[edition]
     kicker_box = slide.shapes.add_textbox(Inches(0.6), Inches(0.5), Inches(12.13), Inches(0.4))
     tf_k = kicker_box.text_frame
     tf_k.word_wrap = True
     tf_k.margin_left = tf_k.margin_top = tf_k.margin_right = tf_k.margin_bottom = 0
-    _set_text(tf_k.paragraphs[0], "PROPUESTA COMERCIAL  |  GROW WITH SAP", FONT_HEADING, 13, True, COLOR_SECONDARY)
+    _set_text(tf_k.paragraphs[0], f"PROPUESTA COMERCIAL  |  {ed['programa'].upper()}",
+              FONT_HEADING, 13, True, COLOR_SECONDARY)
 
     title_box = slide.shapes.add_textbox(Inches(0.6), Inches(4.95), Inches(12.13), Inches(1.9))
     tf1 = title_box.text_frame
     tf1.word_wrap = True
     tf1.margin_left = tf1.margin_right = tf1.margin_top = tf1.margin_bottom = 0
 
-    _set_text(tf1.paragraphs[0], "Propuesta de Transformación Digital: SAP S/4HANA Public Cloud",
-              FONT_HEADING, 26, True, COLOR_WHITE, PP_ALIGN.CENTER)
+    _set_text(tf1.paragraphs[0], f"Propuesta de Transformación Digital: {ed['nombre']}",
+              FONT_HEADING, 24, True, COLOR_WHITE, PP_ALIGN.CENTER)
 
     p_client = tf1.add_paragraph()
     client_size = 16 if len(company_name) > 35 else (18 if len(company_name) > 22 else 20)
@@ -354,20 +360,20 @@ def _add_slide_pains(prs, layout_content, pains=None):
         p_d.space_before = Pt(14)
 
 
-def _add_slide_grow(prs, layout_content):
-    """Añade diapositiva de solución GROW con SAP."""
+def _add_slide_grow(prs, layout_content, edition):
+    """Añade diapositiva de solución estratégica según la edición (GROW/RISE)."""
+    ed = EDITION_LABELS[edition]
     slide = prs.slides.add_slide(layout_content)
     remove_slide_placeholders(slide)
-    add_header(slide, "La Solución Estratégica: SAP S/4HANA Public Cloud",
-               "Acelerando el crecimiento operativo con mejores prácticas preconfiguradas")
+    add_header(slide, f"La Solución Estratégica: {ed['nombre']}",
+               f"{ed['programa']}: acelerando el crecimiento operativo con mejores prácticas preconfiguradas")
 
     box_left = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, MARGIN_X, CONTENT_TOP, Inches(5.9), Inches(4.55))
     tf_bl = _style_card(box_left, fill_color=COLOR_PRIMARY, line_color=None)
-    _set_text(tf_bl.paragraphs[0], "¿Por qué GROW con SAP S/4HANA?", FONT_HEADING, 18, True, COLOR_WHITE)
+    _set_text(tf_bl.paragraphs[0], f"¿Por qué {ed['programa']}?", FONT_HEADING, 18, True, COLOR_WHITE)
     p_bl_b = tf_bl.add_paragraph()
     _set_text(p_bl_b,
-              "GROW with SAP está diseñado específicamente para habilitar de forma rápida y escalable "
-              "las operaciones de empresas en crecimiento.\n\n"
+              f"{ed['descripcion']}\n\n"
               "✓ Mitiga los dolores de stock mediante mejores prácticas integradas.\n\n"
               "✓ Acelera la localización contable peruana de forma nativa en la nube.\n\n"
               "✓ Habilita una plataforma segura y disponible 24/7 sin costos de infraestructura física local.",
@@ -460,6 +466,49 @@ def _add_slide_module_co_ps(prs, layout_content, complexity):
          "Liquidación mensual y cierre definitivo del proyecto contra activos fijos en curso o cuentas "
          "de balance.")
     )
+
+
+MODULE_FULL_NAMES = {
+    "FI": "Finanzas (FI)", "CO": "Controlling (CO)", "MM": "Materiales (MM)",
+    "SD": "Ventas (SD)", "PP": "Producción (PP)", "PS": "Proyectos (PS)"
+}
+
+
+def _add_slide_scope_items(prs, layout_content, active_modules, edition):
+    """
+    Añade la lámina de Scope Items de SAP Best Practices para los módulos
+    activos, según el catálogo editable de services/scope_items.py.
+    """
+    ed = EDITION_LABELS[edition]
+    items_by_module = get_scope_items(active_modules)
+    slide = prs.slides.add_slide(layout_content)
+    remove_slide_placeholders(slide)
+    add_header(slide, "Alcance Detallado: Scope Items SAP Best Practices",
+               f"Procesos preconfigurados activados en {ed['nombre']}")
+
+    rows = len(items_by_module) + 1
+    table_height = Inches(min(4.6, 0.55 + rows * 0.68))
+    table_shape = slide.shapes.add_table(rows, 2, MARGIN_X, CONTENT_TOP, Inches(12.15), table_height)
+    table = table_shape.table
+    table.columns[0].width = Inches(2.6)
+    table.columns[1].width = Inches(9.55)
+    style_table_header_cell(table.cell(0, 0), "Módulo")
+    style_table_header_cell(table.cell(0, 1), "Scope Items de SAP Best Practices incluidos")
+
+    for r, (mod, items) in enumerate(items_by_module, start=1):
+        is_even = r % 2 == 0
+        style_table_cell(table.cell(r, 0), MODULE_FULL_NAMES.get(mod, mod),
+                         is_even=is_even, bold=True, font_size=11)
+        items_text = "\n".join(f"{sid} – {name}" for sid, name in items)
+        style_table_cell(table.cell(r, 1), items_text, is_even=is_even, font_size=10)
+
+    note_box = slide.shapes.add_textbox(MARGIN_X, Inches(7.08), Inches(12.15), Inches(0.35))
+    tf_n = note_box.text_frame
+    tf_n.word_wrap = True
+    tf_n.margin_left = tf_n.margin_top = tf_n.margin_right = tf_n.margin_bottom = 0
+    _set_text(tf_n.paragraphs[0],
+              "IDs referenciales de SAP Best Practices; el alcance definitivo se valida en la fase Explore (Fit-to-Standard).",
+              FONT_BODY, 9, False, COLOR_GRAY)
 
 
 def _add_slide_efficiency(prs, layout_content):
@@ -709,7 +758,8 @@ def _add_slide_closing(prs, layout_closing):
     p_sub.space_before = Pt(16)
 
 
-def generate_deck(company_name, sector, description, complexity, financial_data, output_path, pains=None):
+def generate_deck(company_name, sector, description, complexity, financial_data, output_path,
+                  pains=None, edition="Public"):
     """
     Genera la propuesta comercial en PowerPoint usando los layouts oficiales de la
     plantilla corporativa de SEIDOR (mismos fondos de ondas azules, logo y cierre).
@@ -723,7 +773,9 @@ def generate_deck(company_name, sector, description, complexity, financial_data,
     - output_path (str): Ruta del archivo .pptx de salida.
     - pains (dict, opcional): Dolores personalizados {'logistics','financial','management'}
       extraídos por el chatbot para personalizar la lámina de dolores.
+    - edition (str, opcional): 'Public' (GROW with SAP) o 'Private' (RISE with SAP).
     """
+    edition = normalize_edition(edition)
     template_name = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                  "Capacitación de Joule - El futuro de SAP.pptx")
     if not os.path.exists(template_name):
@@ -744,12 +796,13 @@ def generate_deck(company_name, sector, description, complexity, financial_data,
     real_wks = max([m['realize_weeks'] for m in modules.values()]) if modules else 10.68
     deploy_wks = max([m['deploy_weeks'] for m in modules.values()]) if modules else 4.0
 
-    _add_slide_cover(prs, layout_cover, company_name, sector)
+    _add_slide_cover(prs, layout_cover, company_name, sector, edition)
     _add_slide_customer(prs, layout_wave, sector, description)
     _add_slide_pains(prs, layout_wave, pains=pains)
-    _add_slide_grow(prs, layout_wave)
+    _add_slide_grow(prs, layout_wave, edition)
     _add_slide_fi_mm(prs, layout_clean)
     _add_slide_module_co_ps(prs, layout_clean, complexity)
+    _add_slide_scope_items(prs, layout_clean, list(modules.keys()), edition)
     _add_slide_efficiency(prs, layout_clean)
     _add_slide_change(prs, layout_wave)
     _add_slide_economics(prs, layout_clean, summary)

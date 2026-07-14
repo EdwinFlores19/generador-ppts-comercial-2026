@@ -54,7 +54,7 @@ class TestPPTGenerator:
             output_path=self.test_output
         )
         prs = Presentation(self.test_output)
-        assert len(prs.slides) == 10, f"Esperado 10 slides, obtenido {len(prs.slides)}"
+        assert len(prs.slides) == 11, f"Esperado 11 slides, obtenido {len(prs.slides)}"
 
     def test_pptx_has_pie_chart(self):
         modules = ['FI', 'CO', 'MM', 'SD', 'PP', 'PS']
@@ -68,12 +68,12 @@ class TestPPTGenerator:
             output_path=self.test_output
         )
         prs = Presentation(self.test_output)
-        slide9 = prs.slides[8]
+        slide_econ = prs.slides[9]
         has_pie = any(
             shape.has_chart and shape.chart.chart_type == XL_CHART_TYPE.PIE
-            for shape in slide9.shapes
+            for shape in slide_econ.shapes
         )
-        assert has_pie, "Slide 9 debería tener gráfico circular"
+        assert has_pie, "Slide 10 (económica) debería tener gráfico circular"
 
     def test_pptx_has_column_chart(self):
         modules = ['FI', 'CO', 'MM', 'SD', 'PP', 'PS']
@@ -87,9 +87,37 @@ class TestPPTGenerator:
             output_path=self.test_output
         )
         prs = Presentation(self.test_output)
-        slide10 = prs.slides[9]
+        slide_roi = prs.slides[10]
         has_column = any(
             shape.has_chart and shape.chart.chart_type == XL_CHART_TYPE.COLUMN_CLUSTERED
-            for shape in slide10.shapes
+            for shape in slide_roi.shapes
         )
-        assert has_column, "Slide 10 debería tener gráfico de columnas"
+        assert has_column, "Slide 11 (ROI) debería tener gráfico de columnas"
+
+    def test_private_edition_deck(self):
+        from services.scope_items import normalize_edition
+        assert normalize_edition('private') == 'Private'
+        assert normalize_edition('RISE with SAP') == 'Private'
+        assert normalize_edition('Public') == 'Public'
+        assert normalize_edition(None) == 'Public'
+        assert normalize_edition('cualquier cosa') == 'Public'
+
+        modules = ['FI', 'CO', 'MM', 'SD']
+        fin_data = financial_engine.calculate_financials(modules)
+        ppt_generator.generate_deck(
+            company_name="Test Private S.A.",
+            sector="Servicios Comerciales",
+            description="Empresa de prueba edición privada.",
+            complexity="Media",
+            financial_data=fin_data,
+            output_path=self.test_output,
+            edition="Private"
+        )
+        prs = Presentation(self.test_output)
+        assert len(prs.slides) == 11
+        cover_texts = " ".join(
+            shape.text_frame.text for shape in prs.slides[0].shapes
+            if shape.has_text_frame
+        )
+        assert "Private Edition" in cover_texts
+        assert "RISE" in cover_texts.upper()
