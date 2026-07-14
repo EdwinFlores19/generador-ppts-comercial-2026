@@ -20,8 +20,8 @@ graph TD
     API -->|2. Carga de Tiempos y FTE| ENG[Motor Financiero financial_engine.py]
     ENG <-->|Lectura Resiliente con Copia Temp| XLS[Pandas / Openpyxl: Estimador S0 V2.0.xlsx]
     
-    API -->|3. Optimizar Prompt Joule| JOULE[Motor de Optimización Joule joule_optimizer.py]
-    
+    API -->|3. Chatbot IA de Preventa| GEMINI[Google Gemini API: ai_chat.py]
+
     API -->|4. Generar Entregable Comercial| PPTX[Generador PPTX: ppt_generator.py]
     PPTX -->|Copia y Limpieza XML _sldIdLst| BASE[Plantilla Base: Capacitación de Joule.pptx]
     PPTX -->|Inyección de Gráficos Nativos| CHART[CategoryChartData / Office XML Charts]
@@ -33,7 +33,7 @@ graph TD
     style XLS fill:#102B52,stroke:#2ed573,stroke-width:1px,color:#fff
     style CHART fill:#102B52,stroke:#00A8EB,stroke-width:1px,color:#fff
     style SCR fill:#1E272C,stroke:#eccc68,stroke-width:1px,color:#fff
-    style JOULE fill:#173B6C,stroke:#ffa502,stroke-width:1px,color:#fff
+    style GEMINI fill:#173B6C,stroke:#ffa502,stroke-width:1px,color:#fff
 ```
 
 ### Flujo de Trabajo Técnico:
@@ -41,7 +41,7 @@ graph TD
 2. **Flask Backend API:** Coordina de manera asíncrona la orquestación del scraper, el procesamiento del motor financiero y la compilación del deck de PowerPoint.
 3. **Scraper DuckDuckGo PE:** Extrae información corporativa de la web local empleando políticas de **reintento exponencial** ante bloqueos de red (429/503), y clasifica la complejidad en *Alta* o *Media* según heurísticas del sector.
 4. **Motor Financiero (Pandas / Openpyxl):** Lee dinámicamente las estimaciones del archivo `Estimador S0 V2.0.xlsx`, mapea los alcances modulares de SAP S/4HANA (FI, CO, MM, SD, PP, PS) y computa horas, costos de implementación, licencias y soporte.
-5. **Optimizador de Prompts de Joule:** Aplica reglas y "Palabras Mágicas" (MOSTRAR, LISTAR, BUSCAR, ABRIR) para estandarizar las consultas del usuario hacia el copiloto Joule de SAP, limpiando términos subjetivos.
+5. **Chatbot IA de Preventa (Google Gemini):** Conversa con el usuario, infiere sector, módulos, complejidad, edición (Public/Private) y dolores operativos, y emite los datos estructurados con los que se genera la propuesta.
 6. **python-pptx & Gráficos XML Nativo:** Abre la plantilla de diseño institucional (`Capacitación de Joule - El futuro de SAP.pptx`), limpia todas las diapositivas previas sin alterar la estructura XML del `Slide Master`, inyecta la información comercial y genera gráficos circulares y de columnas nativos (compatibles con Excel y editables en Office).
 
 ---
@@ -65,12 +65,11 @@ graph TD
 
 ### Opción A: Despliegue con Docker y Docker Compose (Producción)
 
-1. **Configurar Variables de Enorno para Endpoints de IA:**
-   Cree o configure las variables en su archivo `.env` o directamente en el `docker-compose.yml`:
+1. **Configurar Variables de Entorno:**
+   Cree o configure las variables en su archivo `.env` (ver `config/.env.template`) o directamente en el `docker-compose.yml`:
    ```bash
-    # Configuración de Endpoints de IA y Scraping
-    JOULE_AI_ENDPOINT=https://tu-endpoint-ejemplo.com/v1/optimize
-    JOULE_API_KEY=tu-api-key-aqui
+    # Configuración de IA y Scraping
+    GEMINI_API_KEY=tu-api-key-de-aistudio
     SCRAPER_MAX_RETRIES=3
     SCRAPER_BACKOFF_FACTOR=2.0
    ```
@@ -98,8 +97,7 @@ graph TD
 
 2. **Configurar Entorno Local (Windows Powershell):**
    ```powershell
-   $env:JOULE_AI_ENDPOINT="https://tu-endpoint-ejemplo.com/v1/optimize"
-   $env:JOULE_API_KEY="tu-api-key-aqui"
+   $env:GEMINI_API_KEY="tu-api-key-de-aistudio"
    ```
 
 3. **Inicializar y Estructurar Base de Datos SQLite (opcional, el servidor la crea automáticamente al arrancar):**

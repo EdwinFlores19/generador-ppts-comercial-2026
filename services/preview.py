@@ -97,7 +97,7 @@ def generate_preview_data(company_name, sector, description, complexity, financi
         current_num += 1
 
     scope_bullets = [
-        f"{mod}: " + ", ".join(f"{sid} ({name})" for sid, name in items)
+        f"{mod}: " + ", ".join((sid or name) for sid, name in items[:8])
         for mod, items in get_scope_items(list(modules.keys()))
     ]
     slides.append({

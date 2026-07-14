@@ -487,27 +487,30 @@ def _add_slide_scope_items(prs, layout_content, active_modules, edition):
                f"Procesos preconfigurados activados en {ed['nombre']}")
 
     rows = len(items_by_module) + 1
-    table_height = Inches(min(4.6, 0.55 + rows * 0.68))
+    table_height = Inches(min(4.6, 0.5 + rows * 0.6))
     table_shape = slide.shapes.add_table(rows, 2, MARGIN_X, CONTENT_TOP, Inches(12.15), table_height)
     table = table_shape.table
-    table.columns[0].width = Inches(2.6)
-    table.columns[1].width = Inches(9.55)
+    table.columns[0].width = Inches(2.3)
+    table.columns[1].width = Inches(9.85)
     style_table_header_cell(table.cell(0, 0), "Módulo")
     style_table_header_cell(table.cell(0, 1), "Scope Items de SAP Best Practices incluidos")
 
+    # Formato compacto en párrafo continuo para que hasta 6 módulos
+    # con todos sus scope items quepan en la lámina sin desbordes.
     for r, (mod, items) in enumerate(items_by_module, start=1):
         is_even = r % 2 == 0
         style_table_cell(table.cell(r, 0), MODULE_FULL_NAMES.get(mod, mod),
-                         is_even=is_even, bold=True, font_size=11)
-        items_text = "\n".join(f"{sid} – {name}" for sid, name in items)
-        style_table_cell(table.cell(r, 1), items_text, is_even=is_even, font_size=10)
+                         is_even=is_even, bold=True, font_size=10.5)
+        parts = [f"{sid} {name}" if sid else name for sid, name in items]
+        style_table_cell(table.cell(r, 1), "  ·  ".join(parts), is_even=is_even, font_size=9)
 
     note_box = slide.shapes.add_textbox(MARGIN_X, Inches(7.08), Inches(12.15), Inches(0.35))
     tf_n = note_box.text_frame
     tf_n.word_wrap = True
     tf_n.margin_left = tf_n.margin_top = tf_n.margin_right = tf_n.margin_bottom = 0
     _set_text(tf_n.paragraphs[0],
-              "IDs referenciales de SAP Best Practices; el alcance definitivo se valida en la fase Explore (Fit-to-Standard).",
+              "Scope items según la hoja S0 del Estimador SEIDOR (SAP Best Practices); "
+              "el alcance definitivo se valida en la fase Explore (Fit-to-Standard).",
               FONT_BODY, 9, False, COLOR_GRAY)
 
 

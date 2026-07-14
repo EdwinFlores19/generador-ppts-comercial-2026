@@ -1,5 +1,5 @@
 import pytest
-from services import scraper, financial_engine, joule_optimizer
+from services import scraper, financial_engine
 
 
 class TestScraperProfiles:
@@ -109,36 +109,3 @@ class TestFinancialEngine:
         consulting = result['summary']['consulting_cost']
         support = result['summary']['support_cost']
         assert abs(consulting * 0.20 - support) < 0.01
-
-
-class TestJouleOptimizer:
-    def test_replaces_subjective_terms(self):
-        q = "Muestra el saldo de los clientes morosos"
-        opt = joule_optimizer.optimize_prompt(q)
-        assert "facturas vencidas" in opt['optimized'].lower()
-        assert "moroso" not in opt['optimized'].lower()
-
-    def test_magic_word_mostrar(self):
-        q = "Muestra el saldo de los clientes morosos"
-        opt = joule_optimizer.optimize_prompt(q)
-        assert opt['optimized'].startswith("MOSTRAR")
-
-    def test_transactional_abrir(self):
-        q = "crear una orden de servicio"
-        opt = joule_optimizer.optimize_prompt(q)
-        assert opt['optimized'].startswith("ABRIR")
-
-    def test_buscar_becomes_mostrar(self):
-        q = "buscar contrato de compras con mayor valor"
-        opt = joule_optimizer.optimize_prompt(q)
-        assert opt['optimized'].startswith("MOSTRAR")
-
-    def test_buscar_facturas_becomes_listar(self):
-        q = "buscar las facturas pendientes de clientes"
-        opt = joule_optimizer.optimize_prompt(q)
-        assert opt['optimized'].startswith("LISTAR")
-
-    def test_picking_transaction(self):
-        q = "realizar el picking del pedido 80000009"
-        opt = joule_optimizer.optimize_prompt(q)
-        assert "ABRIR App para Picking" in opt['optimized']
