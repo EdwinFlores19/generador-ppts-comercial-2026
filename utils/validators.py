@@ -51,7 +51,9 @@ def validate_inputs(data):
     except (ValueError, TypeError):
         return False, "El porcentaje de soporte AMS debe ser un valor numérico válido."
 
-    custom_licenses = data.get('modular_licenses', {})
+    custom_licenses = data.get('modular_licenses') or {}
+    if not isinstance(custom_licenses, dict):
+        return False, "El campo modular_licenses debe ser un objeto con módulos y costos."
     modular_licenses = {}
     for k, v in custom_licenses.items():
         try:

@@ -107,6 +107,64 @@ class TestChatAPI:
         resp = client.delete('/api/chat/delete/99999')
         assert resp.status_code == 404
 
+    def test_chat_generate_proposal_sanitization(self, client):
+        resp = client.post('/api/chat/create', json={'first_message': 'Hola'})
+        session_id = resp.get_json()['session_id']
+
+        import os
+        import sqlite3
+        from models.database import DB_NAME
+        import json
+
+        malicious_data = {
+            "company_name": "Empresa../Colón:Prueba?*",
+            "sector": "Servicios Comerciales",
+            "description": "Prueba",
+            "complexity": "Media",
+            "active_modules": ["FI", "CO", "MM", "SD"],
+            "revenue": 10000000.0,
+            "consulting_rate": 60.0,
+            "support_percentage": 15.0,
+            "exchange_rate": 3.78
+        }
+
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE chat_sessions SET proposal_data = ? WHERE id = ?",
+            (json.dumps(malicious_data), session_id)
+        )
+        conn.commit()
+        conn.close()
+
+        resp_gen = client.post(f'/api/chat/generate/{session_id}')
+        assert resp_gen.status_code == 200
+        data = resp_gen.get_json()
+        assert data['success'] is True
+        
+        proposal_id = data['proposal_id']
+        
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT ppt_path FROM proposals WHERE id = ?", (proposal_id,))
+        ppt_path = cursor.fetchone()[0]
+        conn.close()
+        
+        # Verificar prevención de Directory Traversal de forma robusta
+        base_dir = os.path.abspath("generated_decks")
+        abs_ppt_path = os.path.abspath(ppt_path)
+        assert abs_ppt_path.startswith(base_dir)
+
+        # Verificar caracteres inválidos de archivos de Windows/Linux
+        for char in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
+            assert char not in os.path.basename(ppt_path)
+            
+        assert os.path.exists(ppt_path)
+        
+        if os.path.exists(ppt_path):
+            os.remove(ppt_path)
+
+
 
 class TestGenerate:
     def test_generate_missing_data(self, client):

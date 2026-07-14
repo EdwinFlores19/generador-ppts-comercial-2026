@@ -103,6 +103,12 @@ class TestFinancialEngine:
         }
         result = financial_engine.calculate_financials(['FI', 'CO', 'MM', 'SD'], config)
         assert result['summary']['total_investment'] > 0
+        assert abs(result['summary']['porcentaje_ams'] - 0.20) < 0.001
+        
+        # Verificar que el costo de soporte AMS es exactamente el 20% del costo de consultoria
+        consulting = result['summary']['consulting_cost']
+        support = result['summary']['support_cost']
+        assert abs(consulting * 0.20 - support) < 0.01
 
 
 class TestJouleOptimizer:

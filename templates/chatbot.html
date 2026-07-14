@@ -158,13 +158,25 @@
         return text.replace(/##DATA_READY[\s\S]*?##DATA_END/g, '').trim();
     }
 
+    // Token opcional de API (cuando el servidor define API_TOKEN).
+    // Se configura una sola vez desde la consola del navegador:
+    //   localStorage.setItem('seidor_api_token', 'mi-token')
+    function authHeaders() {
+        const token = localStorage.getItem('seidor_api_token');
+        return token ? { 'Authorization': 'Bearer ' + token } : {};
+    }
+
     // Safe JSON fetch: returns parsed JSON or throws with user-friendly message
     async function fetchJson(url, options = {}) {
+        options.headers = Object.assign({}, authHeaders(), options.headers || {});
         let res;
         try {
             res = await fetch(url, options);
         } catch (netErr) {
             throw new Error('Error de red. Verifica tu conexión al servidor.');
+        }
+        if (res.status === 401) {
+            throw new Error('No autorizado: configura tu token con localStorage.setItem("seidor_api_token", "...").');
         }
         const text = await res.text();
         if (!text || text.length === 0) {
@@ -433,7 +445,7 @@
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
-                    <div class="session-title">${s.title || 'Conversación'}</div>
+                    <div class="session-title">${escapeHtml(s.title || 'Conversación')}</div>
                     <div class="session-date">${new Date(s.created_at).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                 `;
                 item.addEventListener('click', () => loadSession(s.id));

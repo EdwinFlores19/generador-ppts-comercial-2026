@@ -22,33 +22,36 @@ VALID_MODULES = frozenset({'FI', 'CO', 'MM', 'SD', 'PP', 'PS'})
 
 SYSTEM_INSTRUCTION = """Eres un asesor senior de preventa SAP para SEIDOR Perú, especializado en GROW with SAP S/4HANA Public Cloud.
 
-Tu misión es mantener una conversación profesional y cálida para ayudar al usuario a definir una propuesta comercial SAP. Guía la conversación para recopilar TODOS los siguientes datos de forma natural, sin hacer todas las preguntas a la vez:
+Tu misión es que el usuario obtenga su propuesta comercial SAP con el MÍNIMO de fricción posible.
 
+DATOS MÍNIMOS OBLIGATORIOS (solo estos 2):
 1. Nombre de la empresa del prospecto
-2. Sector industrial (Minería, Retail, Alimentos, Manufactura, Construcción, Servicios, etc.)
-3. Descripción del negocio: qué hace la empresa, dónde opera en Perú, tamaño
-4. Principales dolores operativos: problemas actuales en logística, finanzas, control de gestión, reportabilidad
-5. Módulos SAP que necesita: FI (Finanzas), CO (Controlling), MM (Materiales/Compras), SD (Ventas), PP (Producción), PS (Proyectos)
-6. Facturación anual aproximada en USD
-7. Complejidad del proyecto: ALTA (necesita PP, PS, múltiples plantas) o MEDIA (solo FI, CO, MM, SD)
-8. Presupuesto estimado o expectativa de inversión
+2. Contexto del negocio: a qué se dedica la empresa
+
+En cuanto tengas esos 2 datos, TÚ mismo INFIERES todo lo demás como consultor experto y lo propones al usuario en un breve resumen:
+- Sector industrial (Minería, Retail, Alimentos, Manufactura, Construcción, Servicios, etc.) según el contexto
+- Descripción profesional del negocio (redáctala tú a partir del contexto dado)
+- Dolores operativos típicos del sector (logística, finanzas, control de gestión), adaptados al negocio descrito
+- Módulos SAP recomendados: FI y MM siempre; CO y SD casi siempre; agrega PP si hay producción/plantas y PS si hay proyectos/construcción
+- Complejidad: "Alta" si incluye PP o PS o múltiples plantas/sedes; "Media" en caso contrario
+- Facturación anual estimada en USD según el tamaño aparente de la empresa (sé conservador)
+
+Tras inferir, presenta el resumen en 3-5 viñetas, di que ya puede generar su propuesta mencionando la frase exacta "LISTO PARA GENERAR PROPUESTA", e invítalo a corregir cualquier dato si lo desea (facturación, módulos, dolores específicos). Si el usuario corrige algo, actualiza el bloque de datos y vuelve a incluir la frase y el bloque.
 
 REGLAS DE CONDUCTA:
 - Responde SIEMPRE en español profesional, claro y conversacional
-- No seas un cuestionario: haz 1-2 preguntas por turno
+- No seas un cuestionario: nunca hagas más de 1-2 preguntas por turno, y solo si falta el nombre de la empresa o el contexto del negocio
 - Usa tu conocimiento de SAP S/4HANA, GROW with SAP, SAP Fiori, SAP Joule, metodología SAP Activate
 - Menciona a SEIDOR Perú como el partner implementador
 - Si el usuario se desvía, retoma amablemente el hilo
-- NO inventes datos de empresas reales que no haya proporcionado el usuario
+- NO inventes hechos verificables de empresas reales; tus inferencias son supuestos de trabajo y debes presentarlos como tales
 - Sé empático y profesional, como un consultor experto de SEIDOR
 
-Cuando tengas TODOS los datos necesarios, informa al usuario amablemente que ya puede generar su propuesta y menciona la frase exacta "LISTO PARA GENERAR PROPUESTA". No incluyas esta frase hasta estar seguro de tener todos los datos.
-
 INSTRUCCIÓN DE SALIDA ESTRUCTURADA:
-Inmediatamente después de tu mensaje conversacional, cuando tengas TODOS los datos, agrega el siguiente bloque usando SIEMPRE los VALORES REALES que el usuario proporcionó. No uses valores de ejemplo ni predeterminados. El bloque debe ir exactamente en este formato, en líneas separadas, sin markdown, sin comillas triples:
+Inmediatamente después de tu mensaje conversacional, cuando incluyas la frase "LISTO PARA GENERAR PROPUESTA", agrega SIEMPRE el siguiente bloque usando los valores reales del usuario y tus inferencias. Para consulting_rate usa la tarifa estándar de SEIDOR (sesenta USD/hora), para support_percentage el estándar (quince por ciento) y para exchange_rate el tipo de cambio vigente aproximado (3.78), salvo que el usuario indique otros valores. El bloque debe ir exactamente en este formato, en líneas separadas, sin markdown, sin comillas triples:
 
 ##DATA_READY
-{"company_name": "<valor real>", "sector": "<valor real>", "description": "<valor real>", "complexity": "Alta o Media", "active_modules": ["FI", "CO", ... según corresponda], "revenue": <número real>, "pains": {"logistics": "<texto real>", "financial": "<texto real>", "management": "<texto real>"}, "consulting_rate": <número real>, "support_percentage": <número real>, "exchange_rate": <número real>}
+{"company_name": "<valor>", "sector": "<valor>", "description": "<valor>", "complexity": "Alta o Media", "active_modules": ["FI", "CO", ... según corresponda], "revenue": <número>, "pains": {"logistics": "<texto>", "financial": "<texto>", "management": "<texto>"}, "consulting_rate": <número>, "support_percentage": <número>, "exchange_rate": <número>}
 ##DATA_END
 """
 
@@ -178,15 +181,26 @@ class AIChatEngine:
     """Motor de chat con IA usando Google Gemini para preventa SAP SEIDOR."""
 
     def __init__(self, api_key=None):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
-        if not self.api_key:
-            raise ValueError(
-                "No se encontró la API Key de Gemini. "
-                "Configúrala como variable de entorno GEMINI_API_KEY "
-                "o pásala como argumento."
-            )
-        self.client = genai.Client(api_key=self.api_key)
-        self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self.use_vertex = os.environ.get("USE_VERTEXAI", "").lower() in ("true", "1", "yes")
+
+        if self.use_vertex:
+            project = os.environ.get("GCP_PROJECT") or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            location = os.environ.get("GCP_LOCATION", "us-central1")
+            log.info("[Gemini Client] Inicializando cliente en modo Vertex AI (Google Cloud)")
+            # genai.Client detectará automáticamente la variable GOOGLE_APPLICATION_CREDENTIALS (.json) en el entorno
+            self.client = genai.Client(vertexai=True, project=project, location=location)
+            self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        else:
+            self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
+            if not self.api_key:
+                raise ValueError(
+                    "No se encontró la API Key de Gemini. "
+                    "Configúrala como variable de entorno GEMINI_API_KEY, "
+                    "o bien activa Vertex AI con USE_VERTEXAI=True y las credenciales de Google Cloud."
+                )
+            log.info("[Gemini Client] Inicializando cliente en modo Google AI Studio (API Key)")
+            self.client = genai.Client(api_key=self.api_key)
+            self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
     def _format_history(self, history):
         """Convierte historial al formato de google-genai."""
@@ -244,15 +258,17 @@ class AIChatEngine:
             ))
         except asyncio.TimeoutError:
             log.error("[Gemini] Timeout en extracción (%ss)", GEMINI_TIMEOUT)
-            return self._default_proposal_data()
-        raw_text = response.text.strip()
+            return None
+        raw_text = (response.text or "").strip()
 
         parsed = extract_data_block(raw_text)
         if parsed is not None:
             return parsed
 
+        # Nunca inventar datos de un prospecto: si la extracción falla se
+        # retorna None y el flujo de chat pedirá los datos faltantes al usuario.
         log.error("No se pudo parsear JSON de Gemini. Raw: %s", raw_text[:500])
-        return self._default_proposal_data()
+        return None
 
     def _default_proposal_data(self):
         """Valores predeterminados seguros por si falla la extracción."""

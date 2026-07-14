@@ -3,9 +3,23 @@ import logging
 log = logging.getLogger("preview")
 
 
-def generate_preview_data(company_name, sector, description, complexity, financial_data):
+DEFAULT_PREVIEW_PAINS = {
+    "logistics": "Falta de trazabilidad en tiempo real del stock y procesos de compra manuales.",
+    "financial": "Cierres contables mensuales lentos y conciliaciones multibancos complejas.",
+    "management": "Silos de información desarticulados e inexistencia de control presupuestal."
+}
+
+
+def generate_preview_data(company_name, sector, description, complexity, financial_data, pains=None):
     summary = financial_data['summary']
     modules = financial_data['modules']
+
+    merged_pains = dict(DEFAULT_PREVIEW_PAINS)
+    if isinstance(pains, dict):
+        for key in merged_pains:
+            val = pains.get(key)
+            if isinstance(val, str) and val.strip():
+                merged_pains[key] = val.strip()
 
     exp_wks = max([m['explore_weeks'] for m in modules.values()]) if modules else 5.68
     real_wks = max([m['realize_weeks'] for m in modules.values()]) if modules else 10.68
@@ -37,9 +51,9 @@ def generate_preview_data(company_name, sector, description, complexity, financi
             "title": "Dolores Operativos Clave",
             "subtitle": "Retos principales mapeados en la gestión actual",
             "bullets": [
-                "Dolor Logístico: Falta de trazabilidad en tiempo real del stock y procesos de compra manuales.",
-                "Dolor Financiero: Cierres contables mensuales lentos y conciliaciones multibancos complejas.",
-                "Dolor de Gestión: Silos de información desarticulados e inexistencia de control presupuestal."
+                f"Dolor Logístico: {merged_pains['logistics']}",
+                f"Dolor Financiero: {merged_pains['financial']}",
+                f"Dolor de Gestión: {merged_pains['management']}"
             ]
         },
         {

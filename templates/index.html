@@ -355,6 +355,14 @@
                 .replace(/'/g, "&#039;");
         }
 
+        // Token opcional de API (cuando el servidor define API_TOKEN).
+        // Se configura una sola vez desde la consola del navegador:
+        //   localStorage.setItem('seidor_api_token', 'mi-token')
+        function authHeaders() {
+            const token = localStorage.getItem('seidor_api_token');
+            return token ? { 'Authorization': 'Bearer ' + token } : {};
+        }
+
         // Toggle Accordion Panel
         const configToggle = document.getElementById('configToggle');
         const configContent = document.getElementById('configContent');
@@ -378,7 +386,7 @@
         const settingsForm = document.getElementById('settingsForm');
 
         function loadSystemConfig() {
-            fetch('/api/config')
+            fetch('/api/config', { headers: authHeaders() })
                 .then(res => res.json())
                 .then(data => {
                     if (data.tarifa_hora_consultor) {
@@ -427,7 +435,7 @@
 
             fetch('/api/config', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
                 body: JSON.stringify(payload)
             })
             .then(res => res.json())
@@ -450,7 +458,7 @@
 
         // Load History
         function fetchHistory() {
-            fetch('/api/proposals')
+            fetch('/api/proposals', { headers: authHeaders() })
                 .then(res => res.json())
                 .then(data => {
                     const tbody = document.getElementById('historyTableBody');
@@ -684,9 +692,7 @@
             
             fetch(endpoint, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
                 body: JSON.stringify(payload)
             })
             .then(res => res.json())

@@ -80,11 +80,22 @@ def _load_workbook_safe():
         log.warning("[CACHE] Error al abrir Excel directamente (bloqueado): %s. Copiando en caliente...", e)
         temp_dir = os.path.join(tempfile.gettempdir(), "grow_deck_automator")
         os.makedirs(temp_dir, exist_ok=True)
-        temp_path = os.path.join(temp_dir, "temp_estimador.xlsx")
+        import uuid
+        temp_path = os.path.join(temp_dir, f"temp_estimador_{uuid.uuid4().hex}.xlsx")
         try:
             shutil.copy2(EXCEL_PATH, temp_path)
-            return openpyxl.load_workbook(temp_path, data_only=True)
+            wb = openpyxl.load_workbook(temp_path, data_only=True)
+            try:
+                os.remove(temp_path)
+            except Exception as rm_err:
+                log.debug("No se pudo remover copia temporal %s: %s", temp_path, rm_err)
+            return wb
         except Exception as copy_err:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
             raise OSError(f"Error comercial: El archivo de estimaciones está bloqueado o inaccesible (incluso en copia temporal): {copy_err}")
 
 
@@ -381,6 +392,7 @@ def calculate_financials(active_modules_list, config=None):
             'payback_period': round(payback_period, 2),
             'anos_roi': cfg['anos_roi'], 'margen_saas': cfg['saas_margin'],
             'factor_igv': cfg['factor_igv'], 'tipo_cambio_pen': cfg['tipo_cambio'],
+            'porcentaje_ams': cfg['support_fraction'],
             'usd': usd_summary, 'pen': pen_summary, 'roi_projection': roi_projection
         }
     }

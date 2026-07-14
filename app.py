@@ -30,6 +30,10 @@ def create_app():
 
     os.makedirs(app.config['OUTPUT_DIR'], exist_ok=True)
 
+    # Garantiza que el esquema SQLite exista en arranques sobre entornos limpios
+    from models.database import init_db
+    init_db()
+
     CORS(app)
 
     from routes.main import main_bp

@@ -9,7 +9,7 @@ from flask import Blueprint, request, jsonify, current_app
 from middleware.auth import require_auth
 from middleware.rate_limit import rate_limit
 from models.database import get_db_connection
-from utils.sanitize import sanitize_input_string
+from utils.sanitize import sanitize_input_string, sanitize_chat_message
 from utils.validators import EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
 from services.ai_chat import extract_data_block, validate_proposal_data
@@ -36,6 +36,17 @@ except Exception as e:
 # ---------------------------------------------------------------------------
 # Helpers internos
 # ---------------------------------------------------------------------------
+
+
+def _to_float(value, default):
+    """Convierte a float de forma segura; retorna el default si el valor es nulo o inválido."""
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return default
+    if result != result or result in (float('inf'), float('-inf')):
+        return default
+    return result
 
 
 def _extract_proposal(updated_history):
@@ -104,7 +115,7 @@ def chat_send_message():
     try:
         data = request.json or {}
         session_id = data.get('session_id')
-        user_message = sanitize_input_string(data.get('message', ''))
+        user_message = sanitize_chat_message(data.get('message', ''))
         history = data.get('history', [])
 
         if not session_id:
@@ -254,11 +265,11 @@ def chat_generate_proposal(session_id):
         sector = proposal_data.get('sector', 'Servicios Comerciales')
         description = proposal_data.get('description', '')
         complexity = proposal_data.get('complexity', 'Media')
-        active_modules = proposal_data.get('active_modules', ['FI', 'CO', 'MM', 'SD'])
-        revenue = float(proposal_data.get('revenue', 15000000))
-        consulting_rate = float(proposal_data.get('consulting_rate', 60))
-        support_percentage = float(proposal_data.get('support_percentage', 15))
-        exchange_rate = float(proposal_data.get('exchange_rate', 3.78))
+        active_modules = proposal_data.get('active_modules') or ['FI', 'CO', 'MM', 'SD']
+        revenue = _to_float(proposal_data.get('revenue'), 15000000.0)
+        consulting_rate = _to_float(proposal_data.get('consulting_rate'), 60.0)
+        support_percentage = _to_float(proposal_data.get('support_percentage'), 15.0)
+        exchange_rate = _to_float(proposal_data.get('exchange_rate'), 3.78)
 
         if complexity not in ['Alta', 'Media']:
             complexity = 'Media' if len(active_modules) <= 4 else 'Alta'
@@ -285,15 +296,12 @@ def chat_generate_proposal(session_id):
                 'PS': proposal_data.get('lic_ps', 15000)
             }
         }
-        budget = proposal_data.get('budget')
-        if budget and revenue > 0:
-            config['consulting_rate'] = consulting_rate
-
         fin_results = services.financial_engine.calculate_financials(active_modules, config)
         summary = fin_results['summary']
 
         output_dir = current_app.config.get('OUTPUT_DIR', 'generated_decks')
-        filename = f"Propuesta_{company_name.replace(' ', '_')}_{complexity}_Chatbot.pptx"
+        safe_name = re.sub(r'[\\/*?:"<>|]', '_', company_name)
+        filename = f"Propuesta_{safe_name.replace(' ', '_')}_{complexity}_Chatbot.pptx"
         ppt_path = os.path.join(output_dir, filename)
 
         services.ppt_generator.generate_deck(
@@ -302,13 +310,15 @@ def chat_generate_proposal(session_id):
             description=description or scraped_profile['description'],
             complexity=complexity,
             financial_data=fin_results,
-            output_path=ppt_path
+            output_path=ppt_path,
+            pains=proposal_data.get('pains')
         )
 
         slides_preview = generate_preview_data(
             company_name, sector,
             description or scraped_profile['description'],
-            complexity, fin_results
+            complexity, fin_results,
+            pains=proposal_data.get('pains')
         )
         preview_json_str = json.dumps(slides_preview)
 

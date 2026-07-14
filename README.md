@@ -102,9 +102,9 @@ graph TD
    $env:JOULE_API_KEY="tu-api-key-aqui"
    ```
 
-3. **Inicializar y Estructurar Base de Datos SQLite:**
+3. **Inicializar y Estructurar Base de Datos SQLite (opcional, el servidor la crea automáticamente al arrancar):**
    ```bash
-   python database_setup.py
+   python scripts/database_setup.py
    ```
 
 4. **Ejecutar el Servidor Flask de Desarrollo:**
