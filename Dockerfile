@@ -19,4 +19,8 @@ USER app
 
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
+# Un solo worker con hilos: el rate limiter y la caché del Estimador
+# viven en memoria de proceso (dict/threading.Lock), por lo que con
+# --workers > 1 cada proceso tendría su propio estado y el límite de
+# peticiones y la caché dejarían de ser consistentes entre workers.
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "120", "app:app"]

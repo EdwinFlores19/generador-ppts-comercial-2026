@@ -192,6 +192,8 @@ def chat_send_message():
 
 
 @chat_bp.route('/api/chat/sessions', methods=['GET'])
+@require_auth
+@rate_limit
 def chat_list_sessions():
     try:
         with closing(get_db_connection()) as conn:
@@ -223,6 +225,8 @@ def chat_list_sessions():
 
 
 @chat_bp.route('/api/chat/delete/<int:session_id>', methods=['DELETE'])
+@require_auth
+@rate_limit
 def chat_delete_session(session_id):
     try:
         with closing(get_db_connection()) as conn:

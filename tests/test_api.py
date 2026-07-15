@@ -182,7 +182,28 @@ class TestGenerate:
         data = resp.get_json()
         assert data['success'] is True
         assert data['proposal_id'] is not None
-        assert 'download_url' in data or True  # No download_url in generate, only in chat_generate
+        # /api/generate no retorna download_url (solo /api/chat/generate/<id> lo hace)
+        assert 'download_url' not in data
+
+    def test_generate_with_private_edition(self, client):
+        resp = client.post('/api/generate', json={
+            'company_name': 'Corporación Andina S.A.',
+            'annual_revenue': 80000000,
+            'edition': 'Private'
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['success'] is True
+        assert data['edition'] == 'Private'
+
+    def test_generate_default_edition_is_public(self, client):
+        resp = client.post('/api/generate', json={
+            'company_name': 'Comercial Lima S.A.',
+            'annual_revenue': 20000000,
+        })
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['edition'] == 'Public'
 
     def test_download_nonexistent(self, client):
         resp = client.get('/download/99999')

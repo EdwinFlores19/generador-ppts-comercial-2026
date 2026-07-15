@@ -77,29 +77,31 @@ def run_tests():
     from pptx import Presentation
     prs = Presentation(output_path)
     print("Cantidad total de láminas generadas:", len(prs.slides))
-    assert len(prs.slides) == 11, f"Se esperaban 11 diapositivas, se obtuvieron {len(prs.slides)}."
+    # Alta complejidad (6 módulos) incluye: cover, cliente, dolores, grow, fi_mm,
+    # co_ps, scope_items, eficiencia, cambio, económica (PIE), roi (COLUMN), cierre.
+    assert len(prs.slides) == 12, f"Se esperaban 12 diapositivas, se obtuvieron {len(prs.slides)}."
 
-    slide9 = prs.slides[8]
-    has_chart9 = False
-    for shape in slide9.shapes:
+    slide_econ = prs.slides[9]
+    has_chart_econ = False
+    for shape in slide_econ.shapes:
         if shape.has_chart:
-            has_chart9 = True
+            has_chart_econ = True
             chart = shape.chart
-            print(f"Lámina 9: Detectado gráfico nativo tipo: {chart.chart_type}")
-            assert chart.chart_type == XL_CHART_TYPE.PIE, "El gráfico de la lámina 9 debe ser circular (PIE)."
+            print(f"Lámina económica: Detectado gráfico nativo tipo: {chart.chart_type}")
+            assert chart.chart_type == XL_CHART_TYPE.PIE, "El gráfico de la lámina económica debe ser circular (PIE)."
 
-    assert has_chart9, "La lámina 9 debe contener un gráfico nativo circular."
+    assert has_chart_econ, "La lámina económica debe contener un gráfico nativo circular."
 
-    slide10 = prs.slides[9]
-    has_chart10 = False
-    for shape in slide10.shapes:
+    slide_roi = prs.slides[10]
+    has_chart_roi = False
+    for shape in slide_roi.shapes:
         if shape.has_chart:
-            has_chart10 = True
+            has_chart_roi = True
             chart = shape.chart
-            print(f"Lámina 10: Detectado gráfico nativo tipo: {chart.chart_type}")
-            assert chart.chart_type == XL_CHART_TYPE.COLUMN_CLUSTERED, "El gráfico de la lámina 10 debe ser de columnas."
+            print(f"Lámina ROI: Detectado gráfico nativo tipo: {chart.chart_type}")
+            assert chart.chart_type == XL_CHART_TYPE.COLUMN_CLUSTERED, "El gráfico de la lámina ROI debe ser de columnas."
 
-    assert has_chart10, "La lámina 10 debe contener un gráfico nativo de columnas."
+    assert has_chart_roi, "La lámina ROI debe contener un gráfico nativo de columnas."
 
     print(f"\n{SEPARATOR}")
     print("¡TODAS LAS PRUEBAS ENTERPRISE PASARON CON ÉXITO!")

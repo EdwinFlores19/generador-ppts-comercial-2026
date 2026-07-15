@@ -217,7 +217,7 @@ def _validate_config(config, db_config, active_modules_list):
         raise ValueError("Error comercial: La facturación anual de la empresa debe ser mayor a cero.")
 
     modular_licenses = DEFAULT_MODULAR_LICENSES.copy()
-    for mod, val in config.get('modular_licenses', {}).items():
+    for mod, val in (config.get('modular_licenses') or {}).items():
         if val is not None:
             modular_licenses[mod] = float(val)
 

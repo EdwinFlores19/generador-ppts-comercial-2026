@@ -18,7 +18,7 @@ graph TD
     SCR -->|Reintento Exponencial / Fallback Sectorial| PE_WEB[Páginas Web e Información de Operaciones]
     
     API -->|2. Carga de Tiempos y FTE| ENG[Motor Financiero financial_engine.py]
-    ENG <-->|Lectura Resiliente con Copia Temp| XLS[Pandas / Openpyxl: Estimador S0 V2.0.xlsx]
+    ENG <-->|Lectura Resiliente con Copia Temp| XLS[Openpyxl: Estimador S0 V2.0.xlsx]
     
     API -->|3. Chatbot IA de Preventa| GEMINI[Google Gemini API: ai_chat.py]
 
@@ -40,7 +40,7 @@ graph TD
 1. **Interfaz Web Glassmorphism:** SPA interactiva que permite ingresar la empresa y sector, configurar tarifas de consultores, porcentajes de soporte y personalizar licencias modulares.
 2. **Flask Backend API:** Coordina de manera asíncrona la orquestación del scraper, el procesamiento del motor financiero y la compilación del deck de PowerPoint.
 3. **Scraper DuckDuckGo PE:** Extrae información corporativa de la web local empleando políticas de **reintento exponencial** ante bloqueos de red (429/503), y clasifica la complejidad en *Alta* o *Media* según heurísticas del sector.
-4. **Motor Financiero (Pandas / Openpyxl):** Lee dinámicamente las estimaciones del archivo `Estimador S0 V2.0.xlsx`, mapea los alcances modulares de SAP S/4HANA (FI, CO, MM, SD, PP, PS) y computa horas, costos de implementación, licencias y soporte.
+4. **Motor Financiero (Openpyxl):** Lee dinámicamente las estimaciones del archivo `Estimador S0 V2.0.xlsx`, mapea los alcances modulares de SAP S/4HANA (FI, CO, MM, SD, PP, PS) y computa horas, costos de implementación, licencias y soporte. La misma hoja `S0` alimenta el catálogo de Scope Items de SAP Best Practices (`services/scope_items.py`).
 5. **Chatbot IA de Preventa (Google Gemini):** Conversa con el usuario, infiere sector, módulos, complejidad, edición (Public/Private) y dolores operativos, y emite los datos estructurados con los que se genera la propuesta.
 6. **python-pptx & Gráficos XML Nativo:** Abre la plantilla de diseño institucional (`Capacitación de Joule - El futuro de SAP.pptx`), limpia todas las diapositivas previas sin alterar la estructura XML del `Slide Master`, inyecta la información comercial y genera gráficos circulares y de columnas nativos (compatibles con Excel y editables en Office).
 
@@ -63,7 +63,9 @@ graph TD
 
 ---
 
-### Opción A: Despliegue con Docker y Docker Compose (Producción)
+### Opción A: Despliegue con Docker y Docker Compose (alternativa self-hosted)
+
+> El despliegue de referencia en producción es **PythonAnywhere** (ver `deploy/pythonanywhere_wsgi.py`), por disco persistente gratuito. Docker es una alternativa válida para self-hosting en tu propia infraestructura.
 
 1. **Configurar Variables de Entorno:**
    Cree o configure las variables en su archivo `.env` (ver `config/.env.template`) o directamente en el `docker-compose.yml`:

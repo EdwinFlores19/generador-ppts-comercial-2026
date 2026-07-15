@@ -14,6 +14,11 @@ services:
       - PYTHONUNBUFFERED=1
       - DB_NAME=/app/data/proposals.db
       - OUTPUT_DIR=/app/generated_decks
+      # Definir en un archivo .env junto a este docker-compose.yml (Compose lo
+      # carga automáticamente para sustituir estas variables ${...}):
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-}
+      - API_TOKEN=${API_TOKEN:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]

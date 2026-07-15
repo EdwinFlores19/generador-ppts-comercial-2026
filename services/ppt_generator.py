@@ -742,11 +742,12 @@ def _add_slide_roi(prs, layout_content, summary, exp_wks, real_wks, deploy_wks):
     p_m_b.space_before = Pt(10)
 
 
-def _add_slide_closing(prs, layout_closing):
+def _add_slide_closing(prs, layout_closing, edition):
     """
     Añade la diapositiva de cierre usando el layout oficial 'Cierre' de SEIDOR,
     que ya incluye el fondo azul noche y los datos de contacto de SEIDOR Perú.
     """
+    ed = EDITION_LABELS[edition]
     slide = prs.slides.add_slide(layout_closing)
     remove_slide_placeholders(slide)
     t_box = slide.shapes.add_textbox(Inches(0.6), Inches(2.4), Inches(12.13), Inches(2.4))
@@ -756,7 +757,7 @@ def _add_slide_closing(prs, layout_closing):
     _set_text(tf.paragraphs[0], "¡Muchas Gracias!", FONT_HEADING, 44, True, COLOR_WHITE, PP_ALIGN.CENTER)
     p_sub = tf.add_paragraph()
     _set_text(p_sub,
-              "GROW with SAP: El futuro de la gestión empresarial en la nube, impulsado por SEIDOR Perú.",
+              f"{ed['programa']}: El futuro de la gestión empresarial en la nube, impulsado por SEIDOR Perú.",
               FONT_BODY, 16, False, COLOR_SECONDARY, PP_ALIGN.CENTER)
     p_sub.space_before = Pt(16)
 
@@ -810,7 +811,7 @@ def generate_deck(company_name, sector, description, complexity, financial_data,
     _add_slide_change(prs, layout_wave)
     _add_slide_economics(prs, layout_clean, summary)
     _add_slide_roi(prs, layout_clean, summary, exp_wks, real_wks, deploy_wks)
-    _add_slide_closing(prs, layout_closing)
+    _add_slide_closing(prs, layout_closing, edition)
     prs.save(output_path)
     log.info("Presentación corporativa guardada con éxito en: %s", output_path)
 

@@ -125,8 +125,6 @@ _lock = threading.Lock()
 _s0_cache = None
 _s0_last_mtime = 0
 
-_ID_TOKEN_RE = re.compile(r"^[0-9A-Z][0-9A-Z]{1,3}(?:-\d+)?(?:_[0-9A-Z]{2,4}-\d+)?$")
-
 
 def normalize_edition(value):
     """
