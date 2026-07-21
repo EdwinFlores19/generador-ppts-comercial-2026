@@ -41,7 +41,7 @@ graph TD
 2. **Flask Backend API:** Coordina de manera asíncrona la orquestación del scraper, el procesamiento del motor financiero y la compilación del deck de PowerPoint.
 3. **Scraper DuckDuckGo PE:** Extrae información corporativa de la web local empleando políticas de **reintento exponencial** ante bloqueos de red (429/503), y clasifica la complejidad en *Alta* o *Media* según heurísticas del sector.
 4. **Motor Financiero (Openpyxl):** Lee dinámicamente las estimaciones del archivo `Estimador S0 V2.0.xlsx`, mapea los alcances modulares de SAP S/4HANA (FI, CO, MM, SD, PP, PS) y computa horas, costos de implementación, licencias y soporte. La misma hoja `S0` alimenta el catálogo de Scope Items de SAP Best Practices (`services/scope_items.py`).
-5. **Chatbot IA de Preventa (Google Gemini):** Conversa con el usuario, infiere sector, módulos, complejidad, edición (Public/Private) y dolores operativos, y emite los datos estructurados con los que se genera la propuesta.
+5. **Chatbot IA de Preventa (Google Gemini o Groq, configurable vía `AI_PROVIDER`):** Conversa con el usuario, infiere sector, módulos, complejidad, edición (Public/Private) y dolores operativos, y emite los datos estructurados con los que se genera la propuesta.
 6. **python-pptx & Gráficos XML Nativo:** Abre la plantilla de diseño institucional (`Capacitación de Joule - El futuro de SAP.pptx`), limpia todas las diapositivas previas sin alterar la estructura XML del `Slide Master`, inyecta la información comercial y genera gráficos circulares y de columnas nativos (compatibles con Excel y editables en Office).
 
 ---

@@ -1,8 +1,13 @@
 """
 Motor de Inteligencia Artificial para Chatbot de Preventa SAP SEIDOR Perú.
-Utiliza Google Gemini API (google-genai SDK) para interpretar lenguaje natural,
-mantener conversaciones contextuales y extraer datos estructurados para generar
-propuestas comerciales SAP S/4HANA Cloud (GROW with SAP).
+Soporta dos proveedores de IA seleccionables vía la variable de entorno
+AI_PROVIDER:
+- "gemini" (default): Google Gemini API (google-genai SDK)
+- "groq": Groq API (SDK compatible con OpenAI; modelos Llama servidos en LPU)
+
+Ambos interpretan lenguaje natural, mantienen conversaciones contextuales y
+extraen datos estructurados para generar propuestas comerciales SAP S/4HANA
+Cloud (GROW/RISE with SAP).
 """
 
 import os
@@ -10,13 +15,11 @@ import json
 import re
 import asyncio
 import math
-from google import genai
-from google.genai import errors as genai_errors
 import logging
 
 log = logging.getLogger("ai_chat")
 
-GEMINI_TIMEOUT = 25
+AI_TIMEOUT = 25
 
 VALID_MODULES = frozenset({'FI', 'CO', 'MM', 'SD', 'PP', 'PS'})
 
@@ -183,9 +186,19 @@ def validate_proposal_data(data):
 
 
 class AIChatEngine:
-    """Motor de chat con IA usando Google Gemini para preventa SAP SEIDOR."""
+    """Motor de chat con IA para preventa SAP SEIDOR. Soporta Gemini y Groq."""
 
     def __init__(self, api_key=None):
+        self.provider = os.environ.get("AI_PROVIDER", "gemini").strip().lower()
+        if self.provider == "groq":
+            self._init_groq(api_key)
+        else:
+            self.provider = "gemini"
+            self._init_gemini(api_key)
+
+    def _init_gemini(self, api_key):
+        from google import genai
+
         self.use_vertex = os.environ.get("USE_VERTEXAI", "").lower() in ("true", "1", "yes")
 
         if self.use_vertex:
@@ -194,37 +207,79 @@ class AIChatEngine:
             log.info("[Gemini Client] Inicializando cliente en modo Vertex AI (Google Cloud)")
             # genai.Client detectará automáticamente la variable GOOGLE_APPLICATION_CREDENTIALS (.json) en el entorno
             self.client = genai.Client(vertexai=True, project=project, location=location)
-            self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
         else:
             self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
             if not self.api_key:
                 raise ValueError(
                     "No se encontró la API Key de Gemini. "
                     "Configúrala como variable de entorno GEMINI_API_KEY, "
-                    "o bien activa Vertex AI con USE_VERTEXAI=True y las credenciales de Google Cloud."
+                    "activa Vertex AI con USE_VERTEXAI=True, "
+                    "o cambia AI_PROVIDER=groq para usar Groq en su lugar."
                 )
             log.info("[Gemini Client] Inicializando cliente en modo Google AI Studio (API Key)")
             self.client = genai.Client(api_key=self.api_key)
-            self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+
+    def _init_groq(self, api_key):
+        from groq import Groq
+
+        self.api_key = api_key or os.environ.get("GROQ_API_KEY", "")
+        if not self.api_key:
+            raise ValueError(
+                "No se encontró la API Key de Groq. "
+                "Configúrala como variable de entorno GROQ_API_KEY, "
+                "o cambia AI_PROVIDER=gemini para usar Gemini en su lugar."
+            )
+        log.info("[Groq Client] Inicializando cliente Groq (API compatible con OpenAI)")
+        self.client = Groq(api_key=self.api_key)
+        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
     def _format_history(self, history):
-        """Convierte historial al formato de google-genai."""
-        formatted = []
-        for msg in history:
-            role = "user" if msg.get("role") == "user" else "model"
-            formatted.append({
-                "role": role,
-                "parts": [{"text": msg.get("content", "")}]
-            })
-        return formatted
+        """Convierte el historial interno {'role','content'} al formato del proveedor activo."""
+        if self.provider == "groq":
+            return [
+                {
+                    "role": "user" if msg.get("role") == "user" else "assistant",
+                    "content": msg.get("content", ""),
+                }
+                for msg in history
+            ]
+        return [
+            {
+                "role": "user" if msg.get("role") == "user" else "model",
+                "parts": [{"text": msg.get("content", "")}],
+            }
+            for msg in history
+        ]
+
+    def _run_with_timeout(self, fn, *args):
+        """Ejecuta una llamada bloqueante del SDK en un hilo, con timeout compartido entre proveedores."""
+        try:
+            return asyncio.run(asyncio.wait_for(
+                asyncio.to_thread(fn, *args),
+                timeout=AI_TIMEOUT
+            ))
+        except asyncio.TimeoutError:
+            log.error("[%s] Timeout tras %ss", self.provider, AI_TIMEOUT)
+            raise TimeoutError(f"{self.provider} no respondió en {AI_TIMEOUT} segundos")
 
     def send_message(self, history, user_message):
         """Envía un mensaje y retorna la respuesta del asistente."""
-        gemini_history = self._format_history(history)
+        if self.provider == "groq":
+            messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+            messages.extend(self._format_history(history))
+            messages.append({"role": "user", "content": user_message})
+            response = self._run_with_timeout(
+                lambda: self.client.chat.completions.create(
+                    model=self.model, messages=messages,
+                    temperature=0.7, top_p=0.95, max_tokens=4096,
+                )
+            )
+            return response.choices[0].message.content
 
         chat = self.client.chats.create(
             model=self.model,
-            history=gemini_history,
+            history=self._format_history(history),
             config={
                 "system_instruction": SYSTEM_INSTRUCTION,
                 "temperature": 0.7,
@@ -233,38 +288,33 @@ class AIChatEngine:
                 "max_output_tokens": 4096,
             },
         )
-        try:
-            response = asyncio.run(asyncio.wait_for(
-                asyncio.to_thread(chat.send_message, user_message),
-                timeout=GEMINI_TIMEOUT
-            ))
-        except asyncio.TimeoutError:
-            log.error("[Gemini] Timeout al enviar mensaje (%ss)", GEMINI_TIMEOUT)
-            raise TimeoutError(f"Gemini no respondió en {GEMINI_TIMEOUT} segundos")
+        response = self._run_with_timeout(chat.send_message, user_message)
         return response.text
 
     def extract_proposal_data(self, history):
         """Extrae datos estructurados de toda la conversación."""
-        gemini_history = self._format_history(history)
-
-        chat = self.client.chats.create(
-            model=self.model,
-            history=gemini_history,
-            config={
-                "temperature": 0.1,
-                "top_p": 0.8,
-                "max_output_tokens": 2048,
-            },
-        )
         try:
-            response = asyncio.run(asyncio.wait_for(
-                asyncio.to_thread(chat.send_message, EXTRACTION_PROMPT),
-                timeout=GEMINI_TIMEOUT
-            ))
-        except asyncio.TimeoutError:
-            log.error("[Gemini] Timeout en extracción (%ss)", GEMINI_TIMEOUT)
+            if self.provider == "groq":
+                messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
+                messages.extend(self._format_history(history))
+                messages.append({"role": "user", "content": EXTRACTION_PROMPT})
+                response = self._run_with_timeout(
+                    lambda: self.client.chat.completions.create(
+                        model=self.model, messages=messages,
+                        temperature=0.1, top_p=0.8, max_tokens=2048,
+                    )
+                )
+                raw_text = (response.choices[0].message.content or "").strip()
+            else:
+                chat = self.client.chats.create(
+                    model=self.model,
+                    history=self._format_history(history),
+                    config={"temperature": 0.1, "top_p": 0.8, "max_output_tokens": 2048},
+                )
+                response = self._run_with_timeout(chat.send_message, EXTRACTION_PROMPT)
+                raw_text = (response.text or "").strip()
+        except TimeoutError:
             return None
-        raw_text = (response.text or "").strip()
 
         parsed = extract_data_block(raw_text)
         if parsed is not None:
@@ -272,7 +322,7 @@ class AIChatEngine:
 
         # Nunca inventar datos de un prospecto: si la extracción falla se
         # retorna None y el flujo de chat pedirá los datos faltantes al usuario.
-        log.error("No se pudo parsear JSON de Gemini. Raw: %s", raw_text[:500])
+        log.error("No se pudo parsear JSON de %s. Raw: %s", self.provider, raw_text[:500])
         return None
 
     def _default_proposal_data(self):

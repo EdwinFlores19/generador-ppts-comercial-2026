@@ -27,9 +27,9 @@ chat_bp = Blueprint('chat', __name__)
 # ---------------------------------------------------------------------------
 try:
     ai_engine = services.ai_chat.AIChatEngine()
-    log.info("[CHATBOT IA] Motor Gemini inicializado correctamente.")
+    log.info("[CHATBOT IA] Motor de IA (%s) inicializado correctamente.", ai_engine.provider)
 except Exception as e:
-    log.warning("[CHATBOT IA] No se pudo inicializar Gemini: %s", e)
+    log.warning("[CHATBOT IA] No se pudo inicializar el motor de IA: %s", e)
     log.warning("[CHATBOT IA] El chatbot funcionará en modo offline limitado.")
     ai_engine = None
 
@@ -125,9 +125,11 @@ def chat_send_message():
             return jsonify({'error': 'El mensaje no puede estar vacío.'}), 400
 
         if ai_engine is None:
+            provider = os.environ.get("AI_PROVIDER", "gemini").strip().lower()
+            key_hint = "GROQ_API_KEY" if provider == "groq" else "GEMINI_API_KEY"
             return jsonify({
-                'response': '⚠️ El motor de IA no está disponible en este momento. '
-                           'Verifica que la variable de entorno GEMINI_API_KEY esté configurada correctamente.',
+                'response': f'⚠️ El motor de IA no está disponible en este momento. '
+                           f'Verifica que la variable de entorno {key_hint} esté configurada correctamente.',
                 'proposal_ready': False,
                 'extracted_data': None
             })

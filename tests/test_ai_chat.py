@@ -1,3 +1,4 @@
+import os
 import pytest
 from services import ai_chat
 
@@ -156,3 +157,90 @@ class TestValidateProposalData:
         valid, err = ai_chat.validate_proposal_data(data)
         assert valid is False
         assert 'support_percentage' in err
+
+
+class TestAIProviderSelection:
+    """Cobertura del soporte dual de proveedores (Gemini / Groq) vía AI_PROVIDER."""
+
+    @pytest.fixture(autouse=True)
+    def clean_env(self):
+        keys = ['AI_PROVIDER', 'GEMINI_API_KEY', 'GROQ_API_KEY', 'USE_VERTEXAI']
+        saved = {k: os.environ.get(k) for k in keys}
+        for k in keys:
+            os.environ.pop(k, None)
+        yield
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_defaults_to_gemini_without_provider_set(self):
+        with pytest.raises(ValueError, match="Gemini"):
+            ai_chat.AIChatEngine()
+
+    def test_missing_gemini_key_mentions_groq_alternative(self):
+        with pytest.raises(ValueError, match="AI_PROVIDER=groq"):
+            ai_chat.AIChatEngine()
+
+    def test_missing_groq_key_mentions_gemini_alternative(self):
+        os.environ['AI_PROVIDER'] = 'groq'
+        with pytest.raises(ValueError, match="AI_PROVIDER=gemini"):
+            ai_chat.AIChatEngine()
+
+    def test_groq_initializes_with_key(self):
+        os.environ['AI_PROVIDER'] = 'groq'
+        os.environ['GROQ_API_KEY'] = 'test-key'
+        engine = ai_chat.AIChatEngine()
+        assert engine.provider == 'groq'
+        assert engine.model == 'llama-3.3-70b-versatile'
+
+    def test_groq_model_override(self):
+        os.environ['AI_PROVIDER'] = 'groq'
+        os.environ['GROQ_API_KEY'] = 'test-key'
+        os.environ['GROQ_MODEL'] = 'llama-3.1-8b-instant'
+        engine = ai_chat.AIChatEngine()
+        assert engine.model == 'llama-3.1-8b-instant'
+
+    def test_gemini_initializes_with_key(self):
+        os.environ['GEMINI_API_KEY'] = 'test-key'
+        engine = ai_chat.AIChatEngine()
+        assert engine.provider == 'gemini'
+        assert engine.model == 'gemini-2.0-flash'
+
+    def test_provider_is_case_insensitive(self):
+        os.environ['AI_PROVIDER'] = 'GROQ'
+        os.environ['GROQ_API_KEY'] = 'test-key'
+        engine = ai_chat.AIChatEngine()
+        assert engine.provider == 'groq'
+
+    def test_unknown_provider_falls_back_to_gemini(self):
+        os.environ['AI_PROVIDER'] = 'chatgpt'
+        os.environ['GEMINI_API_KEY'] = 'test-key'
+        engine = ai_chat.AIChatEngine()
+        assert engine.provider == 'gemini'
+
+    def test_groq_history_format_is_openai_shaped(self):
+        os.environ['AI_PROVIDER'] = 'groq'
+        os.environ['GROQ_API_KEY'] = 'test-key'
+        engine = ai_chat.AIChatEngine()
+        formatted = engine._format_history([
+            {"role": "user", "content": "Hola"},
+            {"role": "assistant", "content": "Hola, ¿en qué ayudo?"},
+        ])
+        assert formatted == [
+            {"role": "user", "content": "Hola"},
+            {"role": "assistant", "content": "Hola, ¿en qué ayudo?"},
+        ]
+
+    def test_gemini_history_format_is_parts_shaped(self):
+        os.environ['GEMINI_API_KEY'] = 'test-key'
+        engine = ai_chat.AIChatEngine()
+        formatted = engine._format_history([
+            {"role": "user", "content": "Hola"},
+            {"role": "assistant", "content": "Hola, ¿en qué ayudo?"},
+        ])
+        assert formatted == [
+            {"role": "user", "parts": [{"text": "Hola"}]},
+            {"role": "model", "parts": [{"text": "Hola, ¿en qué ayudo?"}]},
+        ]
