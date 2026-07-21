@@ -274,6 +274,7 @@
                             <tr>
                                 <th>Empresa</th>
                                 <th>Complejidad</th>
+                                <th>Edición</th>
                                 <th>Sector</th>
                                 <th>Inversión Facturable</th>
                                 <th>Semanas</th>
@@ -283,7 +284,7 @@
                         </thead>
                         <tbody id="historyTableBody">
                             <tr>
-                                <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
+                                <td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
                                     Cargando historial...
                                 </td>
                             </tr>
@@ -479,7 +480,7 @@
                     if (data.length === 0) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
+                                <td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
                                     No hay propuestas en la base de datos local.
                                 </td>
                             </tr>
@@ -520,10 +521,14 @@
                     data.forEach(prop => {
                         const tr = document.createElement('tr');
                         
-                        const compBadge = prop.complexity === 'Alta' 
+                        const compBadge = prop.complexity === 'Alta'
                             ? `<span class="badge badge-alta">Alta</span>`
                             : `<span class="badge badge-media">Media</span>`;
-                            
+
+                        const editionBadge = prop.edition === 'Private'
+                            ? `<span class="badge badge-alta" title="RISE with SAP">Private</span>`
+                            : `<span class="badge badge-media" title="GROW with SAP">Public</span>`;
+
                         let tableInvStr = '$ ' + prop.total_investment.toLocaleString('en-US', {maximumFractionDigits: 0});
                         
                         // Extract dual currency totals for the table as well
@@ -549,6 +554,7 @@
                                 </a>
                             </td>
                             <td>${compBadge}</td>
+                            <td>${editionBadge}</td>
                             <td>${safeSector}</td>
                             <td>${tableInvStr}</td>
                             <td>${prop.total_weeks} sem</td>
@@ -566,7 +572,7 @@
                     console.error("Error loading history:", err);
                     document.getElementById('historyTableBody').innerHTML = `
                         <tr>
-                            <td colspan="7" style="text-align: center; color: #dc3545; padding: 2rem;">
+                            <td colspan="8" style="text-align: center; color: #dc3545; padding: 2rem;">
                                 Error al conectar con el servidor local.
                             </td>
                         </tr>
