@@ -131,11 +131,20 @@ def chat_send_message():
             return jsonify({'error': 'El mensaje no puede estar vacío.'}), 400
 
         if ai_engine is None:
+            # El mensaje nombra las DOS alternativas: quien se encuentra esto no
+            # tiene por qué saber que el sistema soporta Groq además de Gemini,
+            # y el formulario clásico sigue funcionando sin ninguna clave.
             provider = os.environ.get("AI_PROVIDER", "gemini").strip().lower()
-            key_hint = "GROQ_API_KEY" if provider == "groq" else "GEMINI_API_KEY"
+            if provider == "groq":
+                pista = ("añade GROQ_API_KEY al archivo .env del servidor "
+                         "(o cambia a AI_PROVIDER=gemini con GEMINI_API_KEY)")
+            else:
+                pista = ("añade GEMINI_API_KEY al archivo .env del servidor "
+                         "(o usa AI_PROVIDER=groq con GROQ_API_KEY)")
             return jsonify({
-                'response': f'⚠️ El motor de IA no está disponible en este momento. '
-                           f'Verifica que la variable de entorno {key_hint} esté configurada correctamente.',
+                'response': f'⚠️ El chatbot necesita una clave de IA: {pista}. '
+                           f'Mientras tanto, la generación de propuestas desde el '
+                           f'formulario funciona con normalidad y sin ninguna clave.',
                 'proposal_ready': False,
                 'extracted_data': None
             })
