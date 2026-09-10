@@ -59,7 +59,11 @@ def load_db_config():
     }
     
     if os.path.exists(DB_NAME):
-        conn = sqlite3.connect(DB_NAME)
+        # Se usa la conexión endurecida del modelo (WAL + busy_timeout): con
+        # sqlite3.connect a pelo, leer la configuración mientras otra petición
+        # escribía en proposals podía fallar con "database is locked".
+        from models.database import get_db_connection
+        conn = get_db_connection()
         try:
             cursor = conn.cursor()
             cursor.execute("SELECT parametro, valor FROM configuracion_comercial")
@@ -367,6 +371,15 @@ def _build_advisories(roi_project, payback_period, cfg):
         avisos.append(
             f"Periodo de recupero ({payback_period:.2f} años) mayor al horizonte de proyección "
             f"({anos} años): el gráfico de ROI mostrará el TCO siempre por encima de los ahorros."
+        )
+    elif payback_period <= 0:
+        # payback vale 0.0 cuando no hay ahorro anual con el que recuperar la
+        # inversión. Sin este aviso, la web y el deck mostraban "0 años", que
+        # se lee como recupero instantáneo: justo lo contrario de la realidad.
+        avisos.append(
+            "Periodo de recupero no calculable: con los supuestos actuales no hay ahorro anual, "
+            "así que la inversión no se recupera. Revise la facturación y el factor de ahorro; "
+            "no presente el payback como 0 años."
         )
     return avisos
 

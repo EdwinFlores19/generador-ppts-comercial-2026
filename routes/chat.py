@@ -108,8 +108,8 @@ def chat_create_session():
         return jsonify({'session_id': session_id, 'title': title})
 
     except Exception as e:
-        log.error("[CHATBOT] Error al crear sesión: %s", e)
-        return jsonify({'error': str(e)}), 500
+        log.error("[CHATBOT] Error al crear sesión: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudo crear la conversación.'}), 500
 
 
 # Sin @require_auth cualquiera podía quemar la cuota del proveedor de IA
@@ -249,8 +249,8 @@ def chat_list_sessions():
         return paging_headers(jsonify(sessions), total, limit, offset)
 
     except Exception as e:
-        log.error("[CHATBOT] Error al listar sesiones: %s", e)
-        return jsonify({'error': str(e)}), 500
+        log.error("[CHATBOT] Error al listar sesiones: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudieron cargar las conversaciones.'}), 500
 
 
 @chat_bp.route('/api/chat/delete/<int:session_id>', methods=['DELETE'])
@@ -270,8 +270,8 @@ def chat_delete_session(session_id):
         return jsonify({'success': True, 'message': 'Sesión eliminada correctamente.'})
 
     except Exception as e:
-        log.error("[CHATBOT] Error al eliminar sesión: %s", e)
-        return jsonify({'error': str(e)}), 500
+        log.error("[CHATBOT] Error al eliminar sesión: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudo eliminar la conversación.'}), 500
 
 
 @chat_bp.route('/api/chat/sessions/<int:session_id>', methods=['GET'])

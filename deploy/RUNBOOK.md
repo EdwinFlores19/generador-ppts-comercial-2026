@@ -125,6 +125,9 @@ IA, o forzar el sector y la complejidad en el formulario.
 | El PPT sale con ROI negativo | Facturación baja frente al alcance | La UI ya lo advierte: ajustar facturación, alcance o `factor_ahorro` en Ajustes |
 | El botón Descargar no hace nada | Token ausente o caducado (`/download/<id>` también exige auth) | Mismo `localStorage.setItem(...)` de la fila anterior; la consola muestra el aviso |
 | El historial solo muestra 50 filas | Es lo esperado: se pagina de 50 en 50 | Usar "Cargar más" al pie de la tabla |
+| Generar una propuesta tarda ~1 minuto | Raspado web activado contra un host bloqueado | `SCRAPER_ENABLED=0` en el `.env` (es el valor por defecto) |
+| El navegador dice "Respuesta inesperada del servidor" con HTTP 200 | Un número no finito llegó al cálculo | Ya se rechaza en validación; revisar el log si reaparece |
+| Un frontend externo recibe error de CORS | CORS está cerrado por defecto | Declarar el origen en `CORS_ORIGINS` del `.env` |
 | `scripts/check_production.py` devuelve 401 | El script no lleva token | `API_TOKEN=<token> python scripts/check_production.py` (acepta también `BASE_URL`) |
 
 Logs:

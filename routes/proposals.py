@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import math
 import traceback
 import logging
 from contextlib import closing
@@ -74,8 +75,10 @@ def get_proposals():
                 })
             return paging_headers(jsonify(proposals), total, limit, offset)
     except Exception as e:
-        log.error("Error al obtener propuestas: %s", e)
-        return jsonify({'error': str(e)}), 500
+        # El detalle va al log, no al cliente: str(e) filtraba rutas del
+        # servidor y mensajes internos de SQLite en la respuesta HTTP.
+        log.error("Error al obtener propuestas: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudo cargar el historial de propuestas.'}), 500
 
 
 @proposals_bp.route('/api/config', methods=['GET'])
@@ -98,38 +101,63 @@ def get_config():
         return jsonify({'error': str(e)}), 500
 
 
+CONFIG_PARAMS = (
+    'tarifa_hora_consultor', 'porcentaje_ams', 'margen_saas',
+    'anos_roi', 'factor_igv', 'tipo_cambio_pen', 'factor_ahorro'
+)
+
+
 @proposals_bp.route('/api/config', methods=['POST'])
 @require_auth
 def update_config():
+    """
+    Guarda los parámetros comerciales. Se valida TODO antes de escribir nada:
+    antes se validaba y escribía parámetro a parámetro dentro de la
+    transacción, y un `return ... 400` a mitad del bucle salía del bloque
+    `with conn:` de forma normal, es decir **haciendo commit** de los
+    parámetros ya escritos. Enviar {tarifa: 999, igv: 0.99} dejaba la tarifa
+    en 999 mientras el consultor leía "no válido" y creía que no se había
+    guardado nada — y todas las propuestas siguientes salían con esa tarifa.
+    """
     try:
         data = request.json or {}
+        from utils.validators import _validate_and_convert_param
+
+        cambios = []
+        for key in CONFIG_PARAMS:
+            if key not in data:
+                continue
+            try:
+                valor = float(data[key])
+            except (ValueError, TypeError):
+                return jsonify({'error': f"El valor para '{key}' no es un número válido."}), 400
+            if not math.isfinite(valor):
+                return jsonify({'error': f"El valor para '{key}' no es un número válido."}), 400
+            try:
+                if valor < 0:
+                    raise ValueError("El valor no puede ser negativo.")
+                valor = _validate_and_convert_param(key, valor)
+            except (ValueError, TypeError) as val_err:
+                return jsonify({'error': f"El valor para '{key}' no es válido: {val_err}"}), 400
+            cambios.append((valor, key))
+
+        if not cambios:
+            return jsonify({'error': 'No se recibió ningún parámetro válido para guardar.'}), 400
+
         with closing(get_db_connection()) as conn:
             with conn:
-                cursor = conn.cursor()
-                valid_params = [
-                    'tarifa_hora_consultor', 'porcentaje_ams', 'margen_saas',
-                    'anos_roi', 'factor_igv', 'tipo_cambio_pen', 'factor_ahorro'
-                ]
-
-                for key in valid_params:
-                    if key in data:
-                        try:
-                            valor = float(data[key])
-                            if valor < 0:
-                                raise ValueError("El valor no puede ser negativo.")
-                            from utils.validators import _validate_and_convert_param
-                            valor = _validate_and_convert_param(key, valor)
-                            cursor.execute("""
-                                UPDATE configuracion_comercial
-                                SET valor = ?
-                                WHERE parametro = ?
-                            """, (valor, key))
-                        except (ValueError, TypeError) as val_err:
-                            return jsonify({'error': f"El valor para '{key}' no es válido: {val_err}"}), 400
-        return jsonify({'success': True, 'message': 'Configuración comercial guardada con éxito en SQLite.'})
+                conn.executemany(
+                    "UPDATE configuracion_comercial SET valor = ? WHERE parametro = ?",
+                    cambios
+                )
+        return jsonify({
+            'success': True,
+            'message': 'Configuración comercial guardada con éxito en SQLite.',
+            'actualizados': [k for _, k in cambios]
+        })
     except Exception as e:
-        log.error("Error al actualizar configuración comercial: %s", e)
-        return jsonify({'error': str(e)}), 500
+        log.error("Error al actualizar configuración comercial: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudo guardar la configuración comercial.'}), 500
 
 
 # La previsualización expone tarifas, márgenes y el cálculo comercial completo:
@@ -323,12 +351,15 @@ def generate_proposal():
         log.warning("[GENERATE] Error de validación: %s", e)
         return jsonify({'error': str(e)}), 400
     except Exception as e:
-        log.error("Error al generar propuesta comercial SAP: %s", e)
-        traceback.print_exc()
+        log.error("Error al generar propuesta comercial SAP: %s", e, exc_info=True)
         err_msg = str(e)
         if any(indicator in err_msg.lower() for indicator in EXCEL_LOCK_INDICATORS):
-            err_msg = EXCEL_LOCKED_MSG
-        return jsonify({'error': err_msg}), 500
+            # Este sí se devuelve tal cual: dice al consultor exactamente qué
+            # hacer (cerrar el Excel del estimador).
+            return jsonify({'error': EXCEL_LOCKED_MSG}), 500
+        return jsonify({
+            'error': 'No se pudo generar la propuesta. Revise el log del servidor para el detalle.'
+        }), 500
 
 
 # La descarga entrega el PPTX de un cliente concreto. Sin autenticación, y con
@@ -336,6 +367,19 @@ def generate_proposal():
 # todas las propuestas comerciales del historial. El front la pide por fetch
 # con cabecera Authorization (descargarArchivo en common.js), no con <a href>,
 # porque una navegación del navegador no puede enviar cabeceras.
+def _nombre_descarga(company_name, complexity):
+    """
+    Nombre del archivo que ve el cliente al descargar. Se limpian los caracteres
+    que rompen el header Content-Disposition o el sistema de archivos; el
+    saneo de entrada preserva a propósito comillas y ampersands (razones
+    sociales reales), así que aquí hay que quitarlos.
+    """
+    base = f"Propuesta_{company_name or 'Cliente'}_{complexity or 'Media'}"
+    base = re.sub(r'[\\/:*?"<>|\r\n]', '', base)
+    base = re.sub(r'\s+', '_', base).strip('_')
+    return (base[:120] or 'Propuesta') + '.pptx'
+
+
 @proposals_bp.route('/download/<int:proposal_id>', methods=['GET'])
 @require_auth
 @rate_limit
@@ -350,11 +394,18 @@ def download_ppt(proposal_id):
             return "Propuesta comercial no localizada.", 404
 
         ppt_path = row['ppt_path']
-        if not os.path.exists(ppt_path):
+        # Misma contención que en el borrado: solo se sirven archivos que estén
+        # dentro de OUTPUT_DIR, nunca una ruta arbitraria de la BBDD.
+        output_dir = os.path.abspath(current_app.config.get('OUTPUT_DIR', 'generated_decks'))
+        abs_path = os.path.abspath(ppt_path or '')
+        if not abs_path.startswith(output_dir + os.sep):
+            log.error("Ruta de PPTX fuera del directorio de salida para la propuesta %s", proposal_id)
+            return "Archivo de presentación no disponible.", 404
+        if not os.path.exists(abs_path):
             return "Archivo de presentación no encontrado en el servidor.", 404
 
-        clean_name = f"Propuesta_{row['company_name'].replace(' ', '_')}_{row['complexity']}.pptx"
-        return send_file(ppt_path, as_attachment=True, download_name=clean_name)
+        clean_name = _nombre_descarga(row['company_name'], row['complexity'])
+        return send_file(abs_path, as_attachment=True, download_name=clean_name)
     except Exception as e:
         log.error("Error al descargar la presentación: %s", e)
         return "Internal Server Error", 500

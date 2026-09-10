@@ -1,6 +1,26 @@
 import logging
+import math
 
 log = logging.getLogger("validators")
+
+# Cota superior de la facturación anual. No es un capricho: float("nan") e
+# float("inf") superaban la comprobación `revenue <= 0` (toda comparación con
+# NaN es False), se propagaban por todo el motor financiero y acababan en la
+# respuesta como los literales `NaN` / `Infinity`, que **no son JSON válido**.
+# El navegador reventaba con "Respuesta inesperada del servidor" en un 200, y
+# /api/generate llegaba a escribir esos valores en la BBDD.
+MAX_REVENUE = 1e15
+
+
+def _numero_finito(valor, nombre_campo):
+    """Convierte a float rechazando NaN e infinitos. Devuelve (ok, valor|mensaje)."""
+    try:
+        num = float(valor)
+    except (ValueError, TypeError):
+        return False, f"{nombre_campo} debe ser un valor numérico válido."
+    if not math.isfinite(num):
+        return False, f"{nombre_campo} debe ser un número finito (no se admiten NaN ni infinito)."
+    return True, num
 
 EXCEL_LOCK_INDICATORS = ["Estimador", "access the file", "permission denied"]
 EXCEL_LOCKED_MSG = (
@@ -31,40 +51,39 @@ def _validate_and_convert_param(key, valor):
 
 
 def validate_inputs(data):
-    try:
-        revenue = float(data.get('annual_revenue', 10000000.0))
-        if revenue <= 0.0:
-            return False, "La facturación anual debe ser un número positivo mayor a cero."
-    except (ValueError, TypeError):
-        return False, "La facturación anual debe ser un valor numérico válido."
+    ok, revenue = _numero_finito(data.get('annual_revenue', 10000000.0), "La facturación anual")
+    if not ok:
+        return False, revenue
+    if revenue <= 0.0:
+        return False, "La facturación anual debe ser un número positivo mayor a cero."
+    if revenue > MAX_REVENUE:
+        return False, "La facturación anual excede el máximo admitido (1e15 USD). Verifique el dato."
 
-    try:
-        consulting_rate = float(data.get('consulting_rate', 60.0))
-        if not (10.0 <= consulting_rate <= 1000.0):
-            return False, "La tarifa horaria del consultor debe estar entre $10 y $1000 USD."
-    except (ValueError, TypeError):
-        return False, "La tarifa horaria de consultoría debe ser un valor numérico válido."
+    ok, consulting_rate = _numero_finito(data.get('consulting_rate', 60.0), "La tarifa horaria de consultoría")
+    if not ok:
+        return False, consulting_rate
+    if not (10.0 <= consulting_rate <= 1000.0):
+        return False, "La tarifa horaria del consultor debe estar entre $10 y $1000 USD."
 
-    try:
-        support_percentage = float(data.get('support_percentage', 15.0))
-        if not (0.0 <= support_percentage <= 100.0):
-            return False, "El porcentaje de soporte AMS debe estar entre 0% y 100%."
-    except (ValueError, TypeError):
-        return False, "El porcentaje de soporte AMS debe ser un valor numérico válido."
+    ok, support_percentage = _numero_finito(data.get('support_percentage', 15.0), "El porcentaje de soporte AMS")
+    if not ok:
+        return False, support_percentage
+    if not (0.0 <= support_percentage <= 100.0):
+        return False, "El porcentaje de soporte AMS debe estar entre 0% y 100%."
 
     custom_licenses = data.get('modular_licenses') or {}
     if not isinstance(custom_licenses, dict):
         return False, "El campo modular_licenses debe ser un objeto con módulos y costos."
     modular_licenses = {}
     for k, v in custom_licenses.items():
-        try:
-            if v is not None:
-                val = float(v)
-                if val < 0.0:
-                    return False, f"El costo de licencia para el módulo {k} no puede ser negativo."
-                modular_licenses[k] = val
-        except (ValueError, TypeError):
-            return False, f"El costo de licencia para el módulo {k} debe ser un valor numérico válido."
+        if v is None:
+            continue
+        ok, val = _numero_finito(v, f"El costo de licencia para el módulo {k}")
+        if not ok:
+            return False, val
+        if val < 0.0:
+            return False, f"El costo de licencia para el módulo {k} no puede ser negativo."
+        modular_licenses[k] = val
 
     return True, {
         'revenue': revenue,

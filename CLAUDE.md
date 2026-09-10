@@ -51,6 +51,47 @@ parsea la columna `SAP S/4HANA BP` de la hoja `S0`. Si los consultores
 actualizan el estimador, la lámina se actualiza sola. Hay un catálogo de
 respaldo por si el Excel no está disponible.
 
+**El raspado web está desactivado por defecto (`SCRAPER_ENABLED=0`).**
+DuckDuckGo no está en la lista blanca de PythonAnywhere y responde 202/timeout
+fuera de ella: el raspado fallaba *siempre*, pero gastaba ~33 s (3 intentos ×
+10 s + backoff) antes de rendirse, y `/api/preview` y `/api/generate` lo
+llamaban por separado. Una propuesta tardaba 78 s; ahora tarda 25. Si algún día
+hay salida libre, se reactiva con `SCRAPER_ENABLED=1`; hay un cortacircuitos que
+marca el host como caído tras el primer fallo del proceso.
+
+**La complejidad y el sector se deducen del NOMBRE de la empresa.**
+`analyze_company_intelligence` ya sabía leerlo, pero solo se llegaba a él por la
+rama del raspado — que nunca corre — así que "Minera Las Bambas S.A." salía como
+*Servicios Comerciales / Media*: alcance de empresa de servicios para una
+minera. Ahora el nombre se clasifica siempre. Dos reglas que conviene respetar
+al tocar las listas de palabras clave (`services/scraper.py`):
+
+- Las claves deben ser **raíces que aparezcan en la razón social real**:
+  `pesca` no está dentro de `pesquera`, ni `construccion` dentro de
+  `constructora`. Ese fue justo el fallo.
+- **Un sector industrial identificado implica complejidad Alta**, igual que en
+  `_build_sector_info`. Sin esa regla las dos rutas se contradecían.
+
+El sector que el consultor escribe a mano siempre manda sobre el deducido.
+
+**El guardado de la configuración comercial es atómico.** Se valida todo antes
+de escribir nada. Antes se validaba y escribía parámetro a parámetro dentro de
+la transacción, y un `return ... 400` a mitad del bucle salía del `with conn:`
+de forma normal, es decir **haciendo commit**: enviar `{tarifa: 999, igv: 0.99}`
+dejaba la tarifa en 999 mientras el consultor leía "no válido".
+
+**CORS está cerrado salvo que se declare `CORS_ORIGINS`.** `CORS(app)` a secas
+abría la API a cualquier origen; con `API_TOKEN` vacío, cualquier web que el
+consultor visitara podía leer `/api/proposals` y llevarse el historial de
+clientes con sus montos. La UI se sirve desde el mismo Flask, así que no
+necesita CORS.
+
+**Nada que venga del usuario puede ser NaN ni infinito.** `float('nan')`
+superaba `revenue <= 0` (toda comparación con NaN es False) y salía en la
+respuesta como el literal `NaN`, que no es JSON válido: el navegador reventaba
+ante un HTTP 200. `utils/validators.py:_numero_finito` es el único sitio por
+donde deben pasar los números de entrada.
+
 **Los siete parámetros comerciales viven en la BBDD**, no en el código
 (`configuracion_comercial`, editables desde el panel de Ajustes): tarifa,
 AMS, margen SaaS, años de ROI, IGV, tipo de cambio y `factor_ahorro`.
@@ -122,3 +163,7 @@ variable de entorno `API_TOKEN`.
   scraper cae al fallback sectorial. Para clasificar bien, usar el chatbot.
 - **El Excel del estimador se lee con copia en caliente** si Windows lo tiene
   bloqueado por estar abierto.
+- **Un `python app.py` anterior puede seguir ocupando el puerto 5000** aunque su
+  terminal ya no exista: el servidor nuevo arranca, no puede enlazar y sigues
+  viendo el código viejo. En Windows:
+  `Get-NetTCPConnection -LocalPort 5000 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`.

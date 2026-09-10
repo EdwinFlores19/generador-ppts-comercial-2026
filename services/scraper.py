@@ -66,13 +66,17 @@ SECTOR_DESCRIPTIONS = {
 }
 
 SECTOR_HIGH_KEYWORDS = [
-    "minera", "mina", "cobre", "oro"
+    "minera", "minero", "mina", "cobre", "oro", "zinc", "plata", "compañia minera",
+    "hidrocarbur", "petrolera", "gasifera", "gasífera"
 ]
 SECTOR_CONSTRUCTION_KEYWORDS = [
-    "construc", "cemento", "obra", "vias", "edif"
+    "construc", "cemento", "obra", "vias", "edif", "concret", "ladrill", "inmobiliar"
 ]
 SECTOR_FOOD_KEYWORDS = [
-    "alimento", "leche", "bebida", "agro", "pesca"
+    # "pesquer" y no "pesca": la razón social real dice "Pesquera Diamante",
+    # y "pesca" no es subcadena de "pesquera".
+    "alimento", "leche", "bebida", "agro", "pesca", "pesquer", "lacteo", "lácteo",
+    "molino", "avicola", "avícola", "azucarer", "conserv"
 ]
 SECTOR_RETAIL_KEYWORDS = [
     "retail", "tienda", "supermercado", "comercio", "mall"
@@ -86,7 +90,12 @@ HIGH_COMPLEXITY_KEYWORDS = [
     "industrial", "manufactura", "mina", "minas", "minera", "provincias", "sucursales",
     "sedes", "arequipa", "pisco", "trujillo", "chiclayo", "piura", "obras", "infraestructura",
     "pep", "wbs", "project system", "pesquera", "agroindustrial", "construccion", "construcción",
-    "concesion", "concesión", "operaciones"
+    "concesion", "concesión", "operaciones",
+    # "constructora" y "cementos" son la forma en que estas empresas se llaman
+    # de verdad, y ninguna de las anteriores las cubría: "construccion" no es
+    # subcadena de "constructora".
+    "construct", "cemento", "siderurg", "refineria", "refinería", "molino", "azucarer",
+    "avicola", "avícola", "logistica integral", "multiplanta"
 ]
 
 MEDIUM_COMPLEXITY_KEYWORDS = [
@@ -149,7 +158,7 @@ def fallback_sectorial(company_name, sector):
 def _make_request(url, headers, attempt, max_retries, delay):
     """Realiza una petición HTTP con reintento exponencial."""
     log.info("Intento %d de %d para raspado...", attempt + 1, max_retries)
-    response = requests.get(url, headers=headers, timeout=10)
+    response = requests.get(url, headers=headers, timeout=SCRAPER_TIMEOUT)
 
     if response.status_code in HTTP_RETRY_CODES:
         log.warning("Advertencia: Recibido código de estado HTTP %s.", response.status_code)
@@ -169,11 +178,58 @@ def _make_request(url, headers, attempt, max_retries, delay):
         time.sleep(delay)
     return None, delay * 2.0
 
+# El raspado web está DESACTIVADO por defecto, y es una decisión medida:
+#
+#   - En PythonAnywhere (plan gratuito) html.duckduckgo.com no está en la lista
+#     blanca de salida, así que la petición nunca llega.
+#   - Fuera de allí, DuckDuckGo responde 202/timeout al User-Agent de un script.
+#
+# Es decir: el raspado fallaba SIEMPRE, pero antes de rendirse gastaba
+# 3 intentos x 10 s de timeout + 3 s de backoff = ~33 segundos por llamada, y
+# /api/preview y /api/generate lo llaman por separado. El consultor esperaba
+# más de medio minuto por lámina para acabar usando exactamente el mismo
+# fallback sectorial que se aplica ahora al instante.
+#
+# Para reactivarlo (por ejemplo en un plan de pago con salida libre):
+#   SCRAPER_ENABLED=1
+SCRAPER_TIMEOUT = float(os.getenv("SCRAPER_TIMEOUT", "6"))
+
+# Si el raspado falla una vez, el host se considera inalcanzable para el resto
+# de la vida del proceso: sin esto, cada propuesta volvía a pagar el timeout
+# completo contra un servidor que ya sabíamos caído.
+_scraper_disponible = True
+
+
+def scraping_habilitado():
+    """True si el raspado web está activado por configuración."""
+    return os.getenv("SCRAPER_ENABLED", "0").strip().lower() in ("1", "true", "yes", "si", "sí")
+
+
+def _marcar_scraper_caido(motivo):
+    global _scraper_disponible
+    if _scraper_disponible:
+        log.warning(
+            "Raspado web desactivado para el resto del proceso (%s). "
+            "Se usará el fallback sectorial, que es instantáneo.", motivo
+        )
+    _scraper_disponible = False
+
+
 def search_company_pe(company_name):
     """
     Busca información pública sobre la huella operativa de la empresa en el Perú
     utilizando DuckDuckGo con políticas de reintento exponencial (exponential backoff).
+
+    Devuelve cadena vacía sin tocar la red si el raspado está desactivado o si
+    ya falló antes en este proceso.
     """
+    if not scraping_habilitado():
+        log.debug("Raspado web desactivado (SCRAPER_ENABLED=0). Se usa el fallback sectorial.")
+        return ""
+    if not _scraper_disponible:
+        log.debug("Raspado web omitido: el host ya se marcó como inalcanzable.")
+        return ""
+
     query = f"{company_name} operaciones peru sedes plantas"
     log.info("Iniciando raspado web para la consulta: '%s'...", query)
 
@@ -197,6 +253,8 @@ def search_company_pe(company_name):
             if attempt < max_retries - 1:
                 time.sleep(delay)
                 delay *= 2.0
+            else:
+                _marcar_scraper_caido(f"agotados {max_retries} intentos: {e}")
 
     return ""
 
@@ -249,6 +307,16 @@ def analyze_company_intelligence(company_name, text_corpus=""):
     # 4. Clasificar sector
     sector, desc_suffix = _classify_sector(name_lower, corpus_lower)
 
+    # Si se identifica un sector industrial concreto, la complejidad es Alta
+    # aunque las palabras de complejidad no hayan disparado. Es la misma regla
+    # que ya aplicaba fallback_sectorial (_build_sector_info: todo sector que no
+    # sea "Servicios Comerciales" es Alta), y sin ella las dos rutas se
+    # contradecían: "Corporación Petrolera del Norte" salía Minería + Media,
+    # es decir sector industrial con alcance de empresa de servicios.
+    if sector is not None and sector != DEFAULT_SECTOR:
+        complexity = "Alta"
+        active_modules = MODULES_HIGH
+
     if sector is None:
         if complexity == "Alta":
             sector = "Corporación Industrial"
@@ -292,22 +360,60 @@ def get_company_profile(company_name, sector=None):
     if profile:
         return profile
 
-    # 2. Probar raspado web con reintentos
+    # 2. Probar raspado web (no-op si está desactivado o el host ya falló)
     text_corpus = ""
     try:
         text_corpus = search_company_pe(company_name)
     except Exception as e:
         log.error("Error crítico en search_company_pe para '%s': %s.", company_name, e)
 
-    # Verificar si el corpus obtenido es válido o está vacío
-    if not text_corpus or len(text_corpus.strip()) < 10:
-        log.warning("No se pudo recolectar información en la web para '%s'. Activando fallback...", company_name)
-        profile = fallback_sectorial(company_name, sector)
-    else:
+    if text_corpus and len(text_corpus.strip()) >= 10:
         profile = analyze_company_intelligence(company_name, text_corpus)
         profile["is_fallback"] = False
+        return profile
 
-    return profile
+    # 3. Sin corpus, clasificar por el NOMBRE antes de rendirse.
+    #
+    # analyze_company_intelligence ya sabía leer el nombre ("minera", "cementos",
+    # "agroindustrial"...), pero solo se llegaba a él por la rama del raspado,
+    # que en la práctica nunca se ejecuta. El resultado era que "Minera Las
+    # Bambas S.A." salía como "Servicios Comerciales / Media": el nombre, que es
+    # la señal más fiable que tenemos, se estaba tirando a la basura.
+    perfil_por_nombre = analyze_company_intelligence(company_name, "")
+    # Un sector concreto es señal; una complejidad Alta también lo es aunque el
+    # sector salga genérico ("Pesquera Diamante" no casa con ningún sector del
+    # catálogo, pero su nombre dice claramente que es una operación industrial).
+    nombre_es_informativo = (
+        perfil_por_nombre["sector"] != DEFAULT_SECTOR
+        or perfil_por_nombre["complexity"] == "Alta"
+    )
+
+    if nombre_es_informativo:
+        log.info("Perfil deducido del nombre de la empresa: sector '%s', complejidad '%s'.",
+                 perfil_por_nombre["sector"], perfil_por_nombre["complexity"])
+        # El sector que el consultor haya escrito manda sobre la deducción.
+        if sector and sector != perfil_por_nombre["sector"]:
+            perfil_por_nombre = _fusionar_sector_indicado(perfil_por_nombre, company_name, sector)
+        perfil_por_nombre["is_fallback"] = True
+        return perfil_por_nombre
+
+    log.info("El nombre '%s' no aporta señal sectorial. Fallback por sector indicado.", company_name)
+    return fallback_sectorial(company_name, sector)
+
+
+def _fusionar_sector_indicado(perfil, company_name, sector):
+    """
+    El consultor eligió un sector explícito: manda sobre el deducido del nombre,
+    pero se conserva la complejidad deducida (el nombre sigue diciendo si la
+    empresa es industrial y multiplanta, cosa que el desplegable no captura).
+    """
+    descripcion = SECTOR_DESCRIPTIONS.get(sector)
+    return {
+        "sector": sector,
+        "description": descripcion.format(name=company_name) if descripcion else perfil["description"],
+        "complexity": perfil["complexity"],
+        "active_modules": perfil["active_modules"],
+    }
 
 if __name__ == "__main__":
     import sys

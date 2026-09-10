@@ -112,4 +112,16 @@ def init_db():
                     VALUES (?, ?, ?)
                 """, (param, valor, desc))
 
+            # Índices para el ORDER BY de los listados paginados. Sin ellos
+            # SQLite recorre y ordena la tabla entera en cada página, aunque
+            # solo se devuelvan 50 filas.
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_proposals_creadas
+                ON proposals (created_at DESC, id DESC)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chat_sessions_actualizadas
+                ON chat_sessions (updated_at DESC, id DESC)
+            """)
+
     log.info("Base de datos inicializada correctamente: %s", DB_NAME)

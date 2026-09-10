@@ -55,8 +55,11 @@ def profile_excel_reading_cached():
 def profile_pptx_generation():
     financial_data = financial_engine.calculate_financials(['FI', 'CO', 'MM', 'SD', 'PP', 'PS'])
 
-    output_path = "generated_decks/profiling_test.pptx"
-    os.makedirs("generated_decks", exist_ok=True)
+    # Respeta OUTPUT_DIR como la aplicación: hardcodear "generated_decks"
+    # dejaba un PPTX de ~40 MB en el directorio real en cada ejecución.
+    salida = os.getenv("OUTPUT_DIR", "generated_decks")
+    os.makedirs(salida, exist_ok=True)
+    output_path = os.path.join(salida, "profiling_test.pptx")
 
     tracemalloc.start()
     start_time = time.perf_counter()

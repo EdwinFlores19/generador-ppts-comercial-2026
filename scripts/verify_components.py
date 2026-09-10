@@ -55,8 +55,11 @@ def run_tests():
     print("Éxito: Cálculos bimoneda e impacto del IGV validados matemáticamente.")
 
     print("\n--- Test 4: Verificación de Generación de PPTX y Gráficos Nativos ---")
-    output_path = "generated_decks/Test_Gloria_Enterprise.pptx"
-    os.makedirs("generated_decks", exist_ok=True)
+    # Respeta OUTPUT_DIR como la aplicación: hardcodear "generated_decks"
+    # dejaba un PPTX de ~40 MB en el directorio real en cada ejecución.
+    salida = os.getenv("OUTPUT_DIR", "generated_decks")
+    os.makedirs(salida, exist_ok=True)
+    output_path = os.path.join(salida, "Test_Gloria_Enterprise.pptx")
 
     if os.path.exists(output_path):
         os.remove(output_path)

@@ -34,7 +34,18 @@ def create_app():
     from models.database import init_db
     init_db()
 
-    CORS(app)
+    # CORS(app) a secas abría la API a CUALQUIER origen. Con API_TOKEN vacío
+    # —que es el caso por defecto— eso significa que cualquier web que el
+    # consultor visite podía leer /api/proposals y llevarse el historial
+    # completo de clientes, tarifas y montos. La UI se sirve desde este mismo
+    # Flask, así que no necesita CORS: solo se habilita si se declaran orígenes
+    # explícitos en CORS_ORIGINS (separados por comas).
+    origenes = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+    if origenes:
+        CORS(app, origins=origenes)
+        log.info("  - CORS habilitado para: %s", ", ".join(origenes))
+    else:
+        log.info("  - CORS deshabilitado (solo mismo origen)")
 
     from routes.main import main_bp
     from routes.proposals import proposals_bp
