@@ -324,24 +324,3 @@ class AIChatEngine:
         # retorna None y el flujo de chat pedirá los datos faltantes al usuario.
         log.error("No se pudo parsear JSON de %s. Raw: %s", self.provider, raw_text[:500])
         return None
-
-    def _default_proposal_data(self):
-        """Valores predeterminados seguros por si falla la extracción."""
-        return {
-            "company_name": "Empresa Peruana S.A.C.",
-            "sector": "Servicios Comerciales",
-            "description": "Empresa con operaciones en el mercado peruano que busca transformación digital con SAP S/4HANA Cloud.",
-            "complexity": "Media",
-            "active_modules": ["FI", "CO", "MM", "SD"],
-            "revenue": 15000000,
-            "pains": {
-                "logistics": "Falta de trazabilidad en tiempo real del stock y procesos de compra manuales.",
-                "financial": "Cierres contables mensuales lentos y conciliaciones multibancos complejas.",
-                "management": "Silos de información desarticulados sin control presupuestal en tiempo real."
-            },
-            "consulting_rate": 60,
-            "support_percentage": 15,
-            "exchange_rate": 3.78
-        }
-
-

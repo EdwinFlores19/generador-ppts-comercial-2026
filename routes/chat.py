@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify, current_app
 from middleware.auth import require_auth
 from middleware.rate_limit import rate_limit
 from models.database import get_db_connection
+from utils.paging import parse_paging, paging_headers
 from utils.sanitize import sanitize_input_string, sanitize_chat_message
 from utils.validators import EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
@@ -82,6 +83,7 @@ def _save_proposal_data(session_id, extracted_data, title):
 # Rutas
 # ---------------------------------------------------------------------------
 @chat_bp.route('/api/chat/create', methods=['POST'])
+@require_auth
 @rate_limit
 def chat_create_session():
     try:
@@ -110,7 +112,11 @@ def chat_create_session():
         return jsonify({'error': str(e)}), 500
 
 
+# Sin @require_auth cualquiera podía quemar la cuota del proveedor de IA
+# (Gemini/Groq) contra la clave del servidor, y además leer y escribir en
+# conversaciones ajenas pasando cualquier session_id.
 @chat_bp.route('/api/chat/message', methods=['POST'])
+@require_auth
 @rate_limit
 def chat_send_message():
     try:
@@ -193,18 +199,39 @@ def chat_send_message():
         return jsonify({'error': err_msg}), 500
 
 
+def _contar_mensajes(crudo):
+    """Número de mensajes sin arrastrar el JSON entero hasta el cliente."""
+    if not crudo:
+        return 0
+    try:
+        datos = json.loads(crudo)
+    except (json.JSONDecodeError, TypeError):
+        return 0
+    return len(datos) if isinstance(datos, list) else 0
+
+
+# El listado alimenta la barra lateral, que solo muestra título y fecha. Antes
+# devolvía el JSON completo de mensajes de TODAS las conversaciones: con unas
+# pocas decenas de sesiones eran megabytes en cada carga del chatbot. Ahora la
+# lista es ligera y el detalle se pide con /api/chat/sessions/<id>.
 @chat_bp.route('/api/chat/sessions', methods=['GET'])
 @require_auth
 @rate_limit
 def chat_list_sessions():
     try:
+        limit, offset = parse_paging(request.args)
         with closing(get_db_connection()) as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) AS n FROM chat_sessions")
+            total = cursor.fetchone()['n']
+            # updated_at empata entre sesiones tocadas en el mismo segundo:
+            # sin el id como segundo criterio la paginación repetiría filas.
             cursor.execute("""
                 SELECT id, title, messages, proposal_data, proposal_id, created_at, updated_at
                 FROM chat_sessions
-                ORDER BY updated_at DESC
-            """)
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
             rows = cursor.fetchall()
 
         sessions = []
@@ -212,14 +239,14 @@ def chat_list_sessions():
             sessions.append({
                 'id': r['id'],
                 'title': r['title'],
-                'messages': r['messages'],
-                'proposal_data': r['proposal_data'],
+                'message_count': _contar_mensajes(r['messages']),
+                'tiene_datos': bool(r['proposal_data']),
                 'proposal_id': r['proposal_id'],
                 'created_at': r['created_at'],
                 'updated_at': r['updated_at']
             })
 
-        return jsonify(sessions)
+        return paging_headers(jsonify(sessions), total, limit, offset)
 
     except Exception as e:
         log.error("[CHATBOT] Error al listar sesiones: %s", e)
@@ -245,6 +272,42 @@ def chat_delete_session(session_id):
     except Exception as e:
         log.error("[CHATBOT] Error al eliminar sesión: %s", e)
         return jsonify({'error': str(e)}), 500
+
+
+@chat_bp.route('/api/chat/sessions/<int:session_id>', methods=['GET'])
+@require_auth
+@rate_limit
+def chat_get_session(session_id):
+    """
+    Detalle completo de una conversación (mensajes incluidos). Existe para que
+    el listado pueda ser ligero: la barra lateral no necesita los mensajes,
+    solo la conversación que el consultor abre.
+    """
+    try:
+        with closing(get_db_connection()) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, title, messages, proposal_data, proposal_id, created_at, updated_at
+                FROM chat_sessions WHERE id = ?
+            """, (session_id,))
+            r = cursor.fetchone()
+
+        if not r:
+            return jsonify({'error': 'Sesión de chat no encontrada.'}), 404
+
+        return jsonify({
+            'id': r['id'],
+            'title': r['title'],
+            'messages': r['messages'],
+            'proposal_data': r['proposal_data'],
+            'proposal_id': r['proposal_id'],
+            'created_at': r['created_at'],
+            'updated_at': r['updated_at']
+        })
+
+    except Exception as e:
+        log.error("[CHATBOT] Error al obtener la sesión %s: %s", session_id, e)
+        return jsonify({'error': 'No se pudo cargar la conversación.'}), 500
 
 
 @chat_bp.route('/api/chat/generate/<int:session_id>', methods=['POST'])

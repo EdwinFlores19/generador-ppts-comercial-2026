@@ -29,6 +29,12 @@ body {
     to   { opacity: 1; }
 }
 
+/* La página del chat no scrollea (overflow:hidden), así que el sticky del nav
+   heredado de style.css no aporta nada. */
+nav {
+    position: static;
+}
+
 /* === APP LAYOUT === */
 .app-layout {
     display: flex;
@@ -255,9 +261,8 @@ body {
     gap: 1rem;
 }
 
-.messages-container::-webkit-scrollbar {
-    width: 5px;
-}
+.messages-container/* La regla global de scrollbar se movió a style.css (la comparten ambas
+   páginas); aquí solo quedan las específicas de cada componente. */
 
 .messages-container::-webkit-scrollbar-thumb {
     background: var(--color-secondary);
@@ -420,6 +425,7 @@ body {
 }
 
 .msg-content {
+    overflow-wrap: anywhere;
     background: rgba(11, 35, 71, 0.5);
     border: 1px solid var(--color-border);
     border-radius: 12px;
@@ -620,9 +626,10 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 0.4rem 0.3rem 0;
-    font-size: 0.7rem;
-    color: var(--color-text-muted);
-    opacity: 0.6;
+    font-size: 0.72rem;
+    /* Color explícito en vez de opacity: este texto explica el atajo de teclado
+       y con opacity:0.6 quedaba al límite del contraste mínimo. */
+    color: #8FA3B8;
 }
 
 .input-hint i {
@@ -633,9 +640,10 @@ body {
 .chat-footer {
     text-align: center;
     padding: 0.5rem 1.5rem;
-    font-size: 0.7rem;
-    color: var(--color-text-muted);
-    opacity: 0.5;
+    font-size: 0.72rem;
+    /* Antes: var(--color-text-muted) + opacity:0.5 daba ~4.97:1, justo en el
+       límite de AA. Un color explícito da un contraste predecible. */
+    color: #8FA3B8;
     border-top: 1px solid rgba(255, 255, 255, 0.03);
 }
 
@@ -748,43 +756,7 @@ body {
 }
 
 /* === TOAST === */
-.toast {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    z-index: 999;
-    background: rgba(11, 35, 71, 0.95);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(0, 168, 235, 0.3);
-    border-radius: 10px;
-    padding: 0.8rem 1.2rem;
-    color: var(--color-text-bright);
-    font-size: 0.85rem;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transform: translateY(20px);
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.1, 0.8, 0.3, 1);
-    pointer-events: none;
-    max-width: 380px;
-}
-
-.toast.show {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.toast.error {
-    border-color: rgba(220, 53, 69, 0.4);
-}
-
-.toast.error i {
-    color: #dc3545;
-}
+/* Los estilos de .toast viven ahora en style.css (los usan ambas páginas). */
 
 /* === ANIMATIONS === */
 @keyframes float {
@@ -929,4 +901,66 @@ body {
         bottom: 1rem;
         max-width: calc(100vw - 2rem);
     }
+}
+
+/* Estado real de la conexión (data-estado lo fija el JS) */
+.chat-status[data-estado="warn"] .status-dot {
+    background: #eccc68;
+    box-shadow: 0 0 6px rgba(236, 204, 104, 0.6);
+}
+
+.chat-status[data-estado="error"] .status-dot {
+    background: #dc3545;
+    box-shadow: 0 0 6px rgba(220, 53, 69, 0.6);
+}
+
+/* Pie de la barra lateral: el listado de conversaciones se pagina de 50 en 50
+   porque antes traía los mensajes completos de todas las sesiones. */
+.session-more {
+    padding: 0.75rem 1rem 1rem;
+    text-align: center;
+}
+
+.session-more-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #8FA3B8;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.session-more-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.session-more-btn:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+/* Estados del listado (antes iban con estilos en línea) */
+.session-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+.session-empty i {
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.session-error {
+    text-align: center;
+    padding: 2rem;
+    color: #FF8A8A;
+    font-size: 0.85rem;
 }

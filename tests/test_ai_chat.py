@@ -4,25 +4,14 @@ from services import ai_chat
 
 
 class TestAIChatDefaults:
-    def test_default_proposal_data(self):
-        engine_defaults = ai_chat.AIChatEngine._default_proposal_data(None)
-        assert engine_defaults['company_name'] == 'Empresa Peruana S.A.C.'
-        assert isinstance(engine_defaults['active_modules'], list)
-        assert 'FI' in engine_defaults['active_modules']
-        assert 'pains' in engine_defaults
-        assert 'logistics' in engine_defaults['pains']
-        assert 'financial' in engine_defaults['pains']
-        assert 'management' in engine_defaults['pains']
-
-    def test_default_values_valid(self):
-        data = ai_chat.AIChatEngine._default_proposal_data(None)
-        assert data['consulting_rate'] >= 10
-        assert data['consulting_rate'] <= 1000
-        assert data['support_percentage'] >= 0
-        assert data['support_percentage'] <= 100
-        assert data['exchange_rate'] >= 1
-        assert data['exchange_rate'] <= 10
-        assert data['revenue'] > 0
+    def test_extraccion_fallida_no_inventa_datos(self):
+        """
+        Antes existía _default_proposal_data(): si la extracción de Gemini
+        fallaba, el sistema generaba la propuesta con un prospecto ficticio
+        ("Empresa Peruana S.A.C."). Ahora esa vía no existe y el flujo pide los
+        datos al usuario en lugar de inventarlos.
+        """
+        assert not hasattr(ai_chat.AIChatEngine, '_default_proposal_data')
 
     def test_system_instruction_defined(self):
         assert len(ai_chat.SYSTEM_INSTRUCTION) > 100

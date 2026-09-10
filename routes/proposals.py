@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify, send_file, current_app
 from middleware.auth import require_auth
 from middleware.rate_limit import rate_limit
 from models.database import get_db_connection
+from utils.paging import parse_paging, paging_headers
 from utils.sanitize import sanitize_input_string
 from utils.validators import validate_inputs, EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
@@ -21,13 +22,24 @@ log = logging.getLogger("routes.proposals")
 proposals_bp = Blueprint('proposals', __name__)
 
 
+# El historial crecía sin techo: con 405 propuestas el endpoint devolvía el JSON
+# completo (preview_json incluido, ~2 MB) y el navegador pintaba 405 filas de
+# golpe. Se pagina en servidor y el front pide más bajo demanda.
 @proposals_bp.route('/api/proposals', methods=['GET'])
 @require_auth
 def get_proposals():
     try:
+        limit, offset = parse_paging(request.args)
         with closing(get_db_connection()) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM proposals ORDER BY created_at DESC")
+            cursor.execute("SELECT COUNT(*) AS n FROM proposals")
+            total = cursor.fetchone()['n']
+            # created_at puede empatar entre filas generadas en el mismo segundo:
+            # el id como segundo criterio evita que la paginación repita o salte filas.
+            cursor.execute(
+                "SELECT * FROM proposals ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                (limit, offset)
+            )
             rows = cursor.fetchall()
             proposals = []
             for r in rows:
@@ -60,7 +72,7 @@ def get_proposals():
                     'preview_json': preview_data,
                     'created_at': r['created_at']
                 })
-            return jsonify(proposals)
+            return paging_headers(jsonify(proposals), total, limit, offset)
     except Exception as e:
         log.error("Error al obtener propuestas: %s", e)
         return jsonify({'error': str(e)}), 500
@@ -120,7 +132,10 @@ def update_config():
         return jsonify({'error': str(e)}), 500
 
 
+# La previsualización expone tarifas, márgenes y el cálculo comercial completo:
+# es información interna, no pública.
 @proposals_bp.route('/api/preview', methods=['POST'])
+@require_auth
 @rate_limit
 def preview_proposal():
     try:
@@ -316,7 +331,14 @@ def generate_proposal():
         return jsonify({'error': err_msg}), 500
 
 
+# La descarga entrega el PPTX de un cliente concreto. Sin autenticación, y con
+# los ids siendo consecutivos, bastaba recorrer /download/1..N para bajarse
+# todas las propuestas comerciales del historial. El front la pide por fetch
+# con cabecera Authorization (descargarArchivo en common.js), no con <a href>,
+# porque una navegación del navegador no puede enviar cabeceras.
 @proposals_bp.route('/download/<int:proposal_id>', methods=['GET'])
+@require_auth
+@rate_limit
 def download_ppt(proposal_id):
     try:
         with closing(get_db_connection()) as conn:
@@ -336,3 +358,50 @@ def download_ppt(proposal_id):
     except Exception as e:
         log.error("Error al descargar la presentación: %s", e)
         return "Internal Server Error", 500
+
+
+@proposals_bp.route('/api/proposals/<int:proposal_id>', methods=['DELETE'])
+@require_auth
+@rate_limit
+def delete_proposal(proposal_id):
+    """
+    Elimina una propuesta del historial y su archivo PPTX.
+
+    Sin esta ruta, una propuesta generada por error (nombre mal escrito, cifras
+    equivocadas) quedaba para siempre en el historial y, al ser la más reciente,
+    alimentaba el panel de "Métricas de la Última Propuesta" de forma permanente
+    hasta generar otra.
+    """
+    try:
+        with closing(get_db_connection()) as conn:
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT ppt_path FROM proposals WHERE id = ?", (proposal_id,))
+                row = cursor.fetchone()
+                if not row:
+                    return jsonify({'error': 'Propuesta no encontrada.'}), 404
+
+                ppt_path = row['ppt_path']
+                # Desvincula la propuesta de las sesiones de chat que la
+                # referencian (la FK impediría el borrado con foreign_keys=ON).
+                cursor.execute("UPDATE chat_sessions SET proposal_id = NULL WHERE proposal_id = ?", (proposal_id,))
+                cursor.execute("DELETE FROM proposals WHERE id = ?", (proposal_id,))
+
+        # El archivo se borra fuera de la transacción: si falla, la fila ya se
+        # eliminó y el usuario no queda bloqueado por un PPTX huérfano.
+        if ppt_path:
+            try:
+                output_dir = os.path.abspath(current_app.config.get('OUTPUT_DIR', 'generated_decks'))
+                abs_path = os.path.abspath(ppt_path)
+                # Nunca borrar fuera del directorio de salida.
+                if abs_path.startswith(output_dir + os.sep) and os.path.exists(abs_path):
+                    os.remove(abs_path)
+            except OSError as file_err:
+                log.warning("Propuesta %s eliminada, pero no se pudo borrar %s: %s",
+                            proposal_id, ppt_path, file_err)
+
+        return jsonify({'success': True, 'message': 'Propuesta eliminada del historial.'})
+
+    except Exception as e:
+        log.error("Error al eliminar la propuesta %s: %s", proposal_id, e)
+        return jsonify({'error': str(e)}), 500

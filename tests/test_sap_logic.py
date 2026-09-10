@@ -1,4 +1,3 @@
-import pytest
 from services import scraper, financial_engine
 
 

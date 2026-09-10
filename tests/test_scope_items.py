@@ -1,4 +1,3 @@
-import pytest
 from services import scope_items
 
 

@@ -1,5 +1,4 @@
 import requests
-import json
 import sys
 import os
 
@@ -10,8 +9,22 @@ COLOR_YELLOW = "\033[93m"
 COLOR_BLUE = "\033[94m"
 COLOR_RESET = "\033[0m"
 
-# Dirección base del servidor Flask
-BASE_URL = "http://127.0.0.1:5000"
+# Dirección base del servidor Flask. Configurable para poder pasar el mismo
+# smoke test contra producción:
+#   BASE_URL=https://consultoredwinflores.pythonanywhere.com python scripts/check_production.py
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000").rstrip("/")
+
+# /api/preview exige token cuando el servidor define API_TOKEN (expone tarifas
+# y márgenes). Sin esto el smoke test fallaba con un 401 en cualquier
+# despliegue autenticado.
+API_TOKEN = os.getenv("API_TOKEN", "")
+
+
+def auth_headers():
+    cabeceras = {"Content-Type": "application/json"}
+    if API_TOKEN:
+        cabeceras["Authorization"] = f"Bearer {API_TOKEN}"
+    return cabeceras
 SEPARATOR = "=================================================="
 
 def print_pass(message):
@@ -60,7 +73,7 @@ def run_smoke_test():
         "support_percentage": 15.0,
         "modular_licenses": {}
     }
-    headers = {"Content-Type": "application/json"}
+    headers = auth_headers()
     
     try:
         preview_url = f"{BASE_URL}/api/preview"
@@ -74,7 +87,11 @@ def run_smoke_test():
                 print_fail(f"API retornó success=False en el JSON: {data}")
                 sys.exit(1)
         else:
-            print_fail(f"API de previsualización falló con código HTTP {response.status_code}. Detalle: {response.text}")
+            if response.status_code == 401:
+                print_fail("API de previsualización devolvió 401: el servidor exige token.")
+                print_info("Exporta API_TOKEN con el mismo valor del .env del servidor y repite.")
+            else:
+                print_fail(f"API de previsualización falló con código HTTP {response.status_code}. Detalle: {response.text}")
             sys.exit(1)
             
     except Exception as e:

@@ -123,6 +123,9 @@ IA, o forzar el sector y la complejidad en el formulario.
 | Error 500 al generar | `Estimador S0 V2.0.xlsx` abierto/bloqueado | Cerrar el Excel; el sistema ya reintenta con copia temporal |
 | Todo devuelve 401 | `API_TOKEN` definido en `.env` | En el navegador: `localStorage.setItem('seidor_api_token', '<token>')` |
 | El PPT sale con ROI negativo | Facturación baja frente al alcance | La UI ya lo advierte: ajustar facturación, alcance o `factor_ahorro` en Ajustes |
+| El botón Descargar no hace nada | Token ausente o caducado (`/download/<id>` también exige auth) | Mismo `localStorage.setItem(...)` de la fila anterior; la consola muestra el aviso |
+| El historial solo muestra 50 filas | Es lo esperado: se pagina de 50 en 50 | Usar "Cargar más" al pie de la tabla |
+| `scripts/check_production.py` devuelve 401 | El script no lleva token | `API_TOKEN=<token> python scripts/check_production.py` (acepta también `BASE_URL`) |
 
 Logs:
 

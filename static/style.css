@@ -3,13 +3,11 @@
     --color-primary: #0B2347;       /* Seidor deep blue */
     --color-secondary: #00A8EB;     /* Seidor electric cyan */
     --color-bg-dark: #07152B;       /* Deep slate background */
-    --color-card-dark: rgba(15, 38, 71, 0.65); /* Glassmorphic card fill */
     --color-border: rgba(0, 168, 235, 0.25);
     --color-text-bright: #FFFFFF;
     --color-text-muted: #A3B8CC;
     --font-heading: 'Outfit', sans-serif;
     --font-body: 'Inter', sans-serif;
-    --gradient-primary: linear-gradient(135deg, #0B2347 0%, #173B6C 100%);
     --gradient-cyan: linear-gradient(135deg, #00A8EB 0%, #0076B3 100%);
     --gradient-card: linear-gradient(180deg, rgba(16, 43, 82, 0.8) 0%, rgba(10, 29, 56, 0.9) 100%);
     --transition-speed: 0.3s;
@@ -30,7 +28,7 @@ body {
     color: var(--color-text-bright);
     font-family: var(--font-body);
     line-height: 1.6;
-    min-height: 100vh;
+    min-height: 100dvh;
     padding-bottom: 2rem;
 }
 
@@ -52,7 +50,6 @@ nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transform: translate3d(0,0,0); /* Aceleración GPU */
 }
 
 .nav-logo {
@@ -162,7 +159,6 @@ nav {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
-    transform: translate3d(0,0,0); /* Aceleración GPU */
 }
 
 .card:hover {
@@ -510,7 +506,7 @@ tr:hover td {
     color: var(--color-secondary);
     font-size: 1.5rem;
     text-shadow: 0 0 8px rgba(0, 168, 235, 0.5);
-    animation: pulse 1.5s ease-in-out infinite;
+    animation: pulseCentered 1.5s ease-in-out infinite;
 }
 
 .loading-text {
@@ -566,7 +562,7 @@ tr:hover td {
 
 .loading-step.active i.step-icon {
     color: var(--color-secondary);
-    animation: pulse 1s infinite alternate;
+    animation: pulseScale 1s infinite alternate;
 }
 
 .loading-step.completed {
@@ -588,10 +584,18 @@ tr:hover td {
     100% { transform: rotate(360deg); }
 }
 
-@keyframes pulse {
+/* Para el icono centrado del spinner (position: absolute) */
+@keyframes pulseCentered {
     0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
     50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
     100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
+}
+
+/* Para elementos en flujo normal (iconos del stepper): sin el translate, que
+   los desplazaba media caja arriba-izquierda sobre el texto. */
+@keyframes pulseScale {
+    from { transform: scale(0.92); opacity: 0.75; }
+    to   { transform: scale(1.08); opacity: 1; }
 }
 
 @keyframes fadeIn {
@@ -727,7 +731,8 @@ tr:hover td {
 @media (min-width: 1025px) {
     /* auto-fit en lugar de repeat(4, 1fr) rígido: con 4 columnas fijas el
        min-content de las métricas bimoneda (~690px) excedía la columna
-       disponible en portátiles y desbordaba el layout. */
+       disponible en portátiles y desbordaba el layout.
+       (La regla de .container se eliminó: duplicaba la base.) */
     .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     }
@@ -770,13 +775,18 @@ tr:hover td {
         position: relative;
     }
     
-    /* Left column (Form Sidebar) converts to sliding drawer overlay */
-    .container > div:first-child {
+    /* La columna del formulario se convierte en cajón deslizante.
+       Antes se seleccionaba con .container > div:first-child: insertar
+       cualquier elemento al principio del contenedor rompía el menú móvil en
+       silencio (el botón hamburguesa dejaba de funcionar sin error). */
+    .form-sidebar {
         position: fixed;
         top: 0;
         left: -320px; /* Hidden state */
         width: 300px;
         height: 100vh;
+        height: 100dvh;   /* 100vh incluye la barra de URL: los botones del
+                             fondo del cajón quedaban fuera de la vista */
         z-index: 200;
         background: #07152B;
         border-right: 1.5px solid var(--color-secondary);
@@ -786,11 +796,11 @@ tr:hover td {
         transition: left var(--transition-speed) cubic-bezier(0.1, 0.8, 0.3, 1);
     }
     
-    .container > div:first-child.show-sidebar {
+    .form-sidebar.show-sidebar {
         left: 0; /* Open state */
     }
     
-    .container > div:first-child .card {
+    .form-sidebar .card {
         background: transparent;
         border: none;
         box-shadow: none;
@@ -798,23 +808,6 @@ tr:hover td {
         margin-bottom: 0;
     }
     
-    /* Sidebar overlay background */
-    .sidebar-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0,0,0,0.6);
-        backdrop-filter: blur(3px);
-        z-index: 150;
-        animation: fadeIn 0.2s ease;
-    }
-    
-    .sidebar-overlay.show {
-        display: block;
-    }
     
     /* KPI Cards stack vertically */
     .stats-grid {
@@ -943,4 +936,365 @@ tr:hover td {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* =========================================================================
+   NOTIFICACIONES (toast) — compartidas por index.html y chatbot.html
+   ========================================================================= */
+.toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 999;
+    background: rgba(11, 35, 71, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 168, 235, 0.3);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    color: var(--color-text-bright);
+    font-size: 0.85rem;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.1, 0.8, 0.3, 1);
+    pointer-events: none;
+    max-width: 380px;
+}
+
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.toast.error {
+    border-color: rgba(220, 53, 69, 0.4);
+}
+
+.toast.error i {
+    color: #dc3545;
+}
+
+.toast > span {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+    .toast {
+        right: 1rem;
+        bottom: 1rem;
+        max-width: calc(100% - 2rem);
+    }
+}
+
+/* =========================================================================
+   COMPONENTES EXTRAÍDOS DE ESTILOS INLINE
+   Antes vivían como atributos style="" en index.html, lo que impedía una CSP
+   estricta, hacía imposible tematizar y neutralizaba parcialmente las media
+   queries (un estilo inline gana siempre a una regla de la hoja).
+   ========================================================================= */
+
+.nav-brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.btn-settings--link {
+    text-decoration: none;
+}
+
+/* Formulario: licencias modulares (inputs sin icono a la izquierda) */
+.form-control--no-icon {
+    padding-left: 0.8rem;
+}
+
+.form-subtitle {
+    font-size: 0.8rem;
+    margin: 0.8rem 0;
+    color: var(--color-secondary);
+    font-weight: 600;
+}
+
+.grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+/* Botón secundario contorneado (antes un style inline que además impedía que
+   :disabled cambiara el fondo, dejando el estado deshabilitado casi invisible) */
+.btn-outline {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(0, 168, 235, 0.4);
+    box-shadow: none;
+}
+
+.btn-outline:hover {
+    background: rgba(0, 168, 235, 0.14);
+}
+
+.btn-outline:disabled {
+    background: #4A5D73;
+    border-color: transparent;
+}
+
+/* Previsualización estructural del deck */
+.preview-tabs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.preview-tab {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(0, 168, 235, 0.25);
+    color: var(--color-text-muted);
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-body);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.preview-tab:hover {
+    background: rgba(0, 168, 235, 0.12);
+    color: var(--color-text-bright);
+}
+
+.preview-tab.active {
+    background: var(--gradient-cyan);
+    border-color: var(--color-secondary);
+    color: #fff;
+    font-weight: 600;
+}
+
+.slide-mockup {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-bg-dark) 100%);
+    border: 1.5px solid var(--color-secondary);
+    border-radius: 12px;
+    padding: 2rem;
+    min-height: 270px;
+    position: relative;
+    box-shadow: inset 0 0 20px rgba(0, 168, 235, 0.15);
+}
+
+.slide-mockup__title {
+    color: var(--color-text-bright);
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    margin-bottom: 0.4rem;
+}
+
+.slide-mockup__subtitle {
+    color: var(--color-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 1.2rem;
+}
+
+.slide-mockup__bullets {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    margin-left: 1.2rem;
+    line-height: 1.8;
+}
+
+.slide-mockup__footer {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    /* 0.4 daba un contraste de ~3.6:1, por debajo del mínimo AA de 4.5:1 */
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.slide-mockup__footer i {
+    color: var(--color-secondary);
+}
+
+/* Celdas de estado de la tabla de historial */
+.table-state {
+    text-align: center;
+    color: var(--color-text-muted);
+    padding: 2rem;
+}
+
+.table-state--error {
+    color: #dc3545;
+}
+
+/* Pie de paginación del historial: el listado se carga por páginas de 50
+   porque traer cientos de propuestas con su preview_json bloqueaba el render. */
+.history-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border, #e3e6ee);
+}
+
+.history-count {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.btn-load-more {
+    background: transparent;
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary);
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-load-more:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.btn-load-more:disabled {
+    opacity: 0.55;
+    cursor: progress;
+}
+
+/* Enlace-botón dentro de la tabla (antes <a href="#"> con preventDefault) */
+.link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-text-bright);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: bold;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.link-button:hover {
+    color: var(--color-secondary);
+}
+
+/* Evita que las métricas queden con 4.7rem de espacio muerto debajo */
+.stats-grid:last-child {
+    margin-bottom: 0;
+}
+
+/* =========================================================================
+   CAJÓN MÓVIL — regla base fuera de la media query
+   ========================================================================= */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;                       /* en vez de width:100vw, que incluye la
+                                       barra de scroll y provocaba scroll
+                                       horizontal cuando estaba visible */
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 150;
+    animation: fadeIn 0.2s ease;
+}
+
+.sidebar-overlay.show {
+    display: block;
+}
+
+/* Botón de cierre dentro del cajón: con el cajón abierto el z-index del overlay
+   (150) tapaba el botón hamburguesa (nav: 100), así que no había forma de
+   cerrarlo salvo tocando el fondo. */
+.drawer-close {
+    display: none;
+    position: absolute;
+    top: 0.8rem;
+    right: 0.8rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-bright);
+    font-size: 1.1rem;
+    cursor: pointer;
+    z-index: 1;
+}
+
+@media (max-width: 767px) {
+    .form-sidebar.show-sidebar .drawer-close {
+        display: block;
+    }
+
+    /* Respeta el notch en iPhone (la plantilla usa viewport-fit=cover) */
+    .form-sidebar {
+        padding-top: max(1.5rem, env(safe-area-inset-top));
+    }
+}
+
+/* Acciones por fila del historial (descargar + eliminar) */
+.row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.btn-row-delete {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(220, 53, 69, 0.25);
+    color: var(--color-text-muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.btn-row-delete:hover {
+    background: rgba(220, 53, 69, 0.2);
+    color: #ff6b7a;
+}
+
+/* Scrollbar fina en toda la app (antes esta regla global vivía solo en
+   chatbot.css, que es una hoja de página específica) */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 168, 235, 0.45);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-secondary);
 }

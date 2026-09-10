@@ -9,8 +9,10 @@ venv/
 .venv/
 env/
 
-# Database
+# Database (WAL deja tambien -wal y -shm, que *.db no cubre)
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 
 # Generated files

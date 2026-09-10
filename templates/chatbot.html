@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/chatbot.css">
+    <script src="/static/common.js"></script>
 </head>
 <body>
 
@@ -44,8 +45,8 @@
             </button>
         </div>
         <div class="session-list" id="sessionList">
-            <div style="text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem;">
-                <i class="fa-solid fa-spinner fa-spin" style="margin-right: 0.5rem;"></i> Cargando...
+            <div class="session-empty">
+                <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Cargando...
             </div>
         </div>
     </div>
@@ -59,9 +60,9 @@
                 <h2 id="chatTitle">Asistente IA de Preventa SEIDOR</h2>
                 <p id="chatSubtitle">Describe tu proyecto SAP y te ayudaré a generar una propuesta profesional</p>
             </div>
-            <div class="chat-status" id="chatStatus">
+            <div class="chat-status" id="chatStatus" role="status" aria-live="polite">
                 <span class="status-dot"></span>
-                <span>Conectado</span>
+                <span id="chatStatusText">Conectando…</span>
             </div>
         </div>
 
@@ -112,7 +113,7 @@
         <div class="input-area">
             <div class="input-wrapper">
                 <textarea id="messageInput" aria-label="Mensaje para el asistente de preventa" rows="1" placeholder="Describe tu proyecto SAP o empresa objetivo..." maxlength="4000"></textarea>
-                <button class="btn-send" id="sendBtn" title="Enviar mensaje">
+                <button class="btn-send" id="sendBtn" title="Enviar mensaje" aria-label="Enviar mensaje">
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
             </div>
@@ -139,9 +140,9 @@
         </div>
         <div class="modal-actions">
             <button class="btn-secondary" onclick="closeResultModal()">Cerrar</button>
-            <a href="#" class="btn-primary" id="modalDownloadBtn">
+            <button type="button" class="btn-primary" id="modalDownloadBtn">
                 <i class="fa-solid fa-download"></i> Descargar PPT
-            </a>
+            </button>
         </div>
     </div>
 </div>
@@ -153,8 +154,7 @@
     let currentSessionId = null;
     let messages = [];
     let sending = false;
-    let sessionsCache = [];
-    let toastTimer = null;
+    const TEXTAREA_MAX_H = 150;   // debe coincidir con max-height de .input-wrapper textarea
     let proposalReady = false;
     let extractedData = null;   // datos detectados por la IA (se muestran en el modal de resultado)
 
@@ -164,42 +164,7 @@
         return String(text).replace(/##DATA_READY[\s\S]*?##DATA_END/g, '').trim();
     }
 
-    // Token opcional de API (cuando el servidor define API_TOKEN).
-    // Se configura una sola vez desde la consola del navegador:
-    //   localStorage.setItem('seidor_api_token', 'mi-token')
-    function authHeaders() {
-        const token = localStorage.getItem('seidor_api_token');
-        return token ? { 'Authorization': 'Bearer ' + token } : {};
-    }
-
-    // Safe JSON fetch: returns parsed JSON or throws with user-friendly message
-    async function fetchJson(url, options = {}) {
-        const opts = Object.assign({}, options, {
-            headers: Object.assign({}, authHeaders(), options.headers || {})
-        });
-        let res;
-        try {
-            res = await fetch(url, opts);
-        } catch (netErr) {
-            throw new Error('Error de red. Verifica tu conexión al servidor.');
-        }
-        if (res.status === 401) {
-            throw new Error('No autorizado: configura tu token con localStorage.setItem("seidor_api_token", "...").');
-        }
-        const text = await res.text();
-        if (!text || text.length === 0) {
-            throw new Error('El servidor respondió vacío. Intenta de nuevo.');
-        }
-        try {
-            return JSON.parse(text);
-        } catch (parseErr) {
-            console.error('fetchJson parse error for', url, ':', text.slice(0, 300));
-            if (res.status >= 500) {
-                throw new Error('Error interno del servidor (' + res.status + ').');
-            }
-            throw new Error('Respuesta inesperada del servidor.');
-        }
-    }
+    // escapeHtml, authHeaders, fetchJson y showToast viven en /static/common.js
 
     // --- DOM REFS ---
     const messagesContainer = document.getElementById('messagesContainer');
@@ -225,7 +190,7 @@
     // Auto-resize textarea
     messageInput.addEventListener('input', () => {
         messageInput.style.height = 'auto';
-        messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, TEXTAREA_MAX_H) + 'px';
     });
 
     sendBtn.addEventListener('click', sendMessage);
@@ -297,6 +262,13 @@
                 return;
             }
 
+            // El backend responde 200 con este aviso cuando falta la API key.
+            if (typeof data.response === 'string' && data.response.includes('motor de IA no está disponible')) {
+                fijarEstado('warn', 'IA no disponible');
+            } else {
+                fijarEstado('ok', 'Conectado');
+            }
+
             messages.push({ role: 'assistant', content: data.response, ts: Date.now() });
             renderMessages();
             scrollToBottom();
@@ -304,12 +276,14 @@
             if (data.proposal_ready) {
                 proposalReady = true;
                 extractedData = data.extracted_data;
+                actualizarBarraGenerar(extractedData);
                 generateBar.classList.add('show');
             }
 
             loadSessions();
 
         } catch (err) {
+            fijarEstado('error', 'Sin conexión');
             showToast(err.message || 'Error de conexión con el servidor.', 'error');
             if (messages.length && messages[messages.length - 1].role === 'user') {
                 messages.pop();
@@ -329,7 +303,7 @@
         if (!messageInput.value) {
             messageInput.value = text;
             messageInput.style.height = 'auto';
-            messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, TEXTAREA_MAX_H) + 'px';
         }
     }
 
@@ -437,17 +411,6 @@
         }
         return d.toLocaleString('es-PE', opts);
     }
-
-    function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return String(unsafe)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
     function formatMessage(text) {
         // El bloque ##DATA_READY se oculta SOLO al pintar: nunca se elimina del
         // array 'messages', que es lo que se reenvía al servidor y se persiste.
@@ -476,22 +439,48 @@
     }
 
     // --- LOAD SESSIONS ---
-    async function loadSessions() {
-        try {
-            const sessions = await fetchJson('/api/chat/sessions');
-            sessionList.innerHTML = '';
+    // El listado se pagina: son 50 por página y el resto se pide con el botón
+    // del pie. Antes se traían todas con sus mensajes completos en cada carga.
+    const SESIONES_PAGINA = 50;
+    let sesionesMostradas = 0;
+    let sesionesTotal = 0;
 
-            if (sessions.length === 0) {
+    async function loadSessions(anexar = false) {
+        try {
+            const desplazamiento = anexar ? sesionesMostradas : 0;
+            // fetch directo (no fetchJson) porque hace falta leer X-Total-Count.
+            const res = await fetch(`/api/chat/sessions?limit=${SESIONES_PAGINA}&offset=${desplazamiento}`, {
+                headers: authHeaders()
+            });
+            if (res.status === 401) {
+                throw new Error('No autorizado. Configura tu token con localStorage.setItem("seidor_api_token", "…").');
+            }
+            const sessions = await res.json();
+            if (!Array.isArray(sessions)) {
+                throw new Error(sessions && sessions.error ? sessions.error : 'Respuesta inesperada del servidor.');
+            }
+            const totalCabecera = parseInt(res.headers.get('X-Total-Count'), 10);
+            sesionesTotal = Number.isFinite(totalCabecera) ? totalCabecera : desplazamiento + sessions.length;
+
+            if (anexar) {
+                // Se quita el pie anterior antes de añadir la página nueva.
+                sessionList.querySelector('.session-more')?.remove();
+            } else {
+                sessionList.innerHTML = '';
+                sesionesMostradas = 0;
+            }
+
+            if (sessions.length === 0 && !anexar) {
                 sessionList.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem;">
-                        <i class="fa-regular fa-message" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem;"></i>
+                    <div class="session-empty">
+                        <i class="fa-regular fa-message" aria-hidden="true"></i>
                         No hay conversaciones aún
                     </div>
                 `;
                 return;
             }
 
-            sessionsCache = sessions;
+            fijarEstado('ok', 'Conectado');
             sessions.forEach(s => {
                 const item = document.createElement('div');
                 item.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
@@ -506,7 +495,7 @@
                         </button>
                     </div>
                     <div class="session-title">${escapeHtml(titulo)}</div>
-                    <div class="session-date">${formatSessionDate(s.created_at)}</div>
+                    <div class="session-date">${formatSessionDate(s.created_at)}${s.message_count ? ' · ' + s.message_count + ' msj' : ''}</div>
                 `;
                 item.querySelector('[data-del]').addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -521,9 +510,33 @@
                 });
                 sessionList.appendChild(item);
             });
+
+            sesionesMostradas += sessions.length;
+
+            if (sesionesMostradas < sesionesTotal) {
+                const pie = document.createElement('div');
+                pie.className = 'session-more';
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.className = 'session-more-btn';
+                boton.textContent = `Cargar más (${sesionesMostradas} de ${sesionesTotal})`;
+                boton.addEventListener('click', async () => {
+                    boton.disabled = true;
+                    boton.textContent = 'Cargando…';
+                    await loadSessions(true);
+                });
+                pie.appendChild(boton);
+                sessionList.appendChild(pie);
+            }
         } catch (err) {
-            sessionList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #dc3545;">'
-                + escapeHtml(err.message || 'Error al cargar sesiones') + '</div>';
+            fijarEstado('error', 'Sin conexión');
+            if (anexar) {
+                showToast(err.message || 'No se pudieron cargar más conversaciones.', 'error');
+                sessionList.querySelector('.session-more-btn')?.removeAttribute('disabled');
+            } else {
+                sessionList.innerHTML = '<div class="session-error">'
+                    + escapeHtml(err.message || 'Error al cargar sesiones') + '</div>';
+            }
         }
     }
 
@@ -542,11 +555,11 @@
     // --- LOAD SPECIFIC SESSION ---
     async function loadSession(sessionId) {
         try {
-            // Reutiliza la lista ya descargada por loadSessions() en vez de
-            // volver a pedir el historial completo de todas las conversaciones.
-            const sessions = sessionsCache.length ? sessionsCache : await fetchJson('/api/chat/sessions');
-            const session = sessions.find(s => s.id === sessionId);
-            if (!session) return;
+            // El listado es ligero (no trae los mensajes) para que abrir el
+            // chatbot no descargue el historial completo de cada conversación:
+            // el detalle se pide solo de la que el consultor abre.
+            const session = await fetchJson('/api/chat/sessions/' + sessionId);
+            if (!session || !session.id) return;
 
             currentSessionId = session.id;
             // Se conserva el contenido crudo (con ##DATA_READY): el bloque se
@@ -565,6 +578,7 @@
                     if (pd && pd.company_name) {
                         proposalReady = true;
                         extractedData = pd;
+                        actualizarBarraGenerar(pd);
                         generateBar.classList.add('show');
                     }
                 } catch (e) {
@@ -607,6 +621,29 @@
         }
     }
 
+    /**
+     * Estado real de la conexión y del motor de IA. El indicador del header
+     * mostraba "Conectado" de forma estática: mentía si el servidor estaba
+     * caído, si faltaba el token o si el motor de IA no tenía API key.
+     */
+    function fijarEstado(estado, texto) {
+        const cont = document.getElementById('chatStatus');
+        const txt = document.getElementById('chatStatusText');
+        if (!cont || !txt) return;
+        cont.dataset.estado = estado;      // ok | warn | error
+        txt.textContent = texto;
+    }
+
+    /** Muestra en la barra de generación qué empresa detectó la IA. */
+    function actualizarBarraGenerar(datos) {
+        const txt = document.getElementById('generateBarText');
+        if (!txt) return;
+        const empresa = datos && datos.company_name;
+        txt.textContent = empresa
+            ? `Datos de ${empresa} recopilados. Genera su propuesta comercial.`
+            : 'Todos los datos han sido recopilados. Genera tu propuesta comercial.';
+    }
+
     // --- RESULT MODAL ---
     function showResultModal(data) {
         document.getElementById('modalTitle').innerText = 'Propuesta Generada: ' + (data.company_name || 'PPT');
@@ -626,12 +663,23 @@
             <div><span class="label">Payback:</span> <span class="value">${data.payback || '-'} años</span></div>
         `;
 
+        // La descarga va por fetch con cabecera Authorization: /download/<id>
+        // exige token cuando el servidor define API_TOKEN, y una navegación
+        // con <a href> no puede enviar cabeceras (devolvía un 401 en blanco).
         const downloadBtn = document.getElementById('modalDownloadBtn');
         if (data.download_url) {
-            downloadBtn.href = data.download_url;
             downloadBtn.style.display = 'inline-flex';
+            downloadBtn.onclick = async () => {
+                downloadBtn.disabled = true;
+                try {
+                    await descargarArchivo(data.download_url);
+                } finally {
+                    downloadBtn.disabled = false;
+                }
+            };
         } else {
             downloadBtn.style.display = 'none';
+            downloadBtn.onclick = null;
         }
 
         document.getElementById('resultModal').classList.add('show');
@@ -647,23 +695,21 @@
     });
 
     // --- TOAST ---
-    function showToast(msg, type) {
-        const toast = document.getElementById('toast');
-        toast.className = 'toast show' + (type ? ' ' + type : '');
-        toast.innerHTML = '<i class="fa-solid fa-' + (type === 'error' ? 'circle-exclamation' : 'circle-check') + '" style="margin-right: 0.5rem;"></i> ' + escapeHtml(msg);
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 4000);
-    }
-
     // --- FOUC Prevention ---
     document.documentElement.classList.remove('loading');
     document.documentElement.classList.add('loaded');
 
     // --- INIT ---
-    window.addEventListener('DOMContentLoaded', () => {
+    function iniciarChat() {
         loadSessions();
         messageInput.focus();
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciarChat);
+    } else {
+        iniciarChat();
+    }
 </script>
 
 </body>

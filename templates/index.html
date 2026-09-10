@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <link rel="stylesheet" href="/static/style.css">
+    <script src="/static/common.js"></script>
 </head>
 <body>
 
@@ -57,8 +58,8 @@
 
     <!-- Navigation Header -->
     <nav>
-        <div style="display: flex; align-items: center; gap: 0.8rem;">
-            <button class="hamburger-btn" id="hamburgerBtn" title="Menú de Navegación">
+        <div class="nav-brand-group">
+            <button class="hamburger-btn" id="hamburgerBtn" title="Menú de Navegación" aria-label="Abrir menú de nueva propuesta" aria-expanded="false" aria-controls="formSidebar">
                 <i class="fa-solid fa-bars"></i>
             </button>
             <a href="/" class="nav-logo">
@@ -70,7 +71,7 @@
             <div class="nav-badge">
                 <i class="fa-solid fa-building-circle-check"></i> SEIDOR Perú - Preventa SAP S/4HANA
             </div>
-            <a href="/chatbot" class="btn-settings" style="text-decoration: none;" title="Chatbot IA para generar propuestas">
+            <a href="/chatbot" class="btn-settings btn-settings--link" title="Chatbot IA para generar propuestas">
                 <i class="fa-solid fa-robot"></i> Chatbot IA
             </a>
             <button class="btn-settings" id="openSettingsBtn" title="Ajustes de Configuración Comercial">
@@ -82,8 +83,9 @@
     <!-- Main Workspace Container -->
     <div class="container">
         
-        <!-- Left Column: Input Form -->
-        <div>
+        <!-- Left Column: Input Form (en móvil actúa como cajón deslizante) -->
+        <div class="form-sidebar" id="formSidebar">
+            <button type="button" class="drawer-close" id="drawerCloseBtn" aria-label="Cerrar menú">&times;</button>
             <div class="card">
                 <div class="card-title">
                     <i class="fa-solid fa-bolt"></i>
@@ -167,40 +169,40 @@
                             </div>
                         </div>
                         
-                        <div style="font-size: 0.8rem; margin: 0.8rem 0; color: var(--color-secondary); font-weight:600;">
+                        <div class="form-subtitle">
                             Licencias Anuales SaaS por Módulo (USD):
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem;">
+                        <div class="grid-2col">
                             <div class="form-group">
                                 <label for="licFI">FI (Finanzas)</label>
-                                <input type="number" id="licFI" class="form-control" style="padding-left: 0.8rem;" value="20000">
+                                <input type="number" id="licFI" class="form-control form-control--no-icon" value="20000">
                             </div>
                             <div class="form-group">
                                 <label for="licCO">CO (Controlling)</label>
-                                <input type="number" id="licCO" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                                <input type="number" id="licCO" class="form-control form-control--no-icon" value="15000">
                             </div>
                             <div class="form-group">
                                 <label for="licMM">MM (Materiales)</label>
-                                <input type="number" id="licMM" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                                <input type="number" id="licMM" class="form-control form-control--no-icon" value="15000">
                             </div>
                             <div class="form-group">
                                 <label for="licSD">SD (Ventas)</label>
-                                <input type="number" id="licSD" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                                <input type="number" id="licSD" class="form-control form-control--no-icon" value="15000">
                             </div>
                             <div class="form-group">
                                 <label for="licPP">PP (Producción)</label>
-                                <input type="number" id="licPP" class="form-control" style="padding-left: 0.8rem;" value="20000">
+                                <input type="number" id="licPP" class="form-control form-control--no-icon" value="20000">
                             </div>
                             <div class="form-group">
                                 <label for="licPS">PS (Proyectos)</label>
-                                <input type="number" id="licPS" class="form-control" style="padding-left: 0.8rem;" value="15000">
+                                <input type="number" id="licPS" class="form-control form-control--no-icon" value="15000">
                             </div>
                         </div>
                     </div>
                     
-                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                        <button type="button" class="btn" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(0, 168, 235, 0.4); box-shadow: none;" id="previewBtn">
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="previewBtn">
                             <i class="fa-solid fa-eye"></i> Previsualizar
                         </button>
                         <button type="submit" class="btn" id="submitBtn">
@@ -253,19 +255,19 @@
                     <h2>Previsualización Estructural del Pitch Deck</h2>
                 </div>
                 
-                <div style="display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.8rem; margin-bottom: 1.2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08);" id="previewTabs">
+                <div class="preview-tabs" id="previewTabs" role="tablist" aria-label="Diapositivas de la propuesta">
                     <!-- Tabs will be rendered here dynamically -->
                 </div>
                 
                 <!-- The mock slide container -->
-                <div style="background: linear-gradient(135deg, #0B2347 0%, #07152B 100%); border: 1.5px solid var(--color-secondary); border-radius: 12px; padding: 2rem; min-height: 270px; position: relative; box-shadow: inset 0 0 20px rgba(0, 168, 235, 0.15);" id="slideMockup">
-                    <h3 style="color: white; font-family: var(--font-heading); font-size: 1.4rem; margin-bottom: 0.4rem;" id="mockTitle">Título de la Lámina</h3>
-                    <p style="color: var(--color-secondary); font-size: 0.9rem; font-weight: 600; margin-bottom: 1.2rem;" id="mockSubtitle">Subtítulo de contexto</p>
-                    <ul style="color: var(--color-text-muted); font-size: 0.95rem; margin-left: 1.2rem; line-height: 1.8;" id="mockBullets">
+                <div class="slide-mockup" id="slideMockup" role="tabpanel" aria-live="polite">
+                    <h3 class="slide-mockup__title" id="mockTitle">Título de la Lámina</h3>
+                    <p class="slide-mockup__subtitle" id="mockSubtitle">Subtítulo de contexto</p>
+                    <ul class="slide-mockup__bullets" id="mockBullets">
                         <!-- Bullets -->
                     </ul>
-                    <div style="position: absolute; bottom: 1rem; right: 1rem; color: rgba(255,255,255,0.4); font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fa-solid fa-file-powerpoint" style="color: var(--color-secondary);"></i> SEIDOR Perú | Diapositiva <span id="mockSlideNum">1</span>
+                    <div class="slide-mockup__footer">
+                        <i class="fa-solid fa-file-powerpoint" aria-hidden="true"></i> SEIDOR Perú | Diapositiva <span id="mockSlideNum">1</span>
                     </div>
                 </div>
             </div>
@@ -293,12 +295,19 @@
                         </thead>
                         <tbody id="historyTableBody">
                             <tr>
-                                <td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
+                                <td colspan="8" class="table-state">
                                     Cargando historial...
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <div class="history-footer" id="historyFooter" hidden>
+                    <span class="history-count" id="historyCount" aria-live="polite"></span>
+                    <button type="button" class="btn-load-more" id="btnLoadMore">
+                        <i class="fa-solid fa-angles-down" aria-hidden="true"></i> Cargar más
+                    </button>
                 </div>
             </div>
         </div>
@@ -374,24 +383,9 @@
 
     <!-- Script SPA logic -->
     <script>
-        function escapeHtml(unsafe) {
-            if (!unsafe) return '';
-            return String(unsafe)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
         // Token opcional de API (cuando el servidor define API_TOKEN).
         // Se configura una sola vez desde la consola del navegador:
         //   localStorage.setItem('seidor_api_token', 'mi-token')
-        function authHeaders() {
-            const token = localStorage.getItem('seidor_api_token');
-            return token ? { 'Authorization': 'Bearer ' + token } : {};
-        }
-
         // Toggle Accordion Panel
         const configToggle = document.getElementById('configToggle');
         const configContent = document.getElementById('configContent');
@@ -464,7 +458,7 @@
                     overlay.style.display = 'none';
                     submitBtn.disabled = false;
                     previewBtn.disabled = false;
-                    alert('La operación tardó más de 3 minutos y se canceló. Verifica que el archivo Excel del estimador no esté abierto y vuelve a intentarlo.');
+                    showToast('La operación tardó más de 3 minutos y se canceló. Verifica que el archivo Excel del estimador no esté abierto y vuelve a intentarlo.', 'error', 12000);
                     return;
                 }
                     // Antes esto solo iba a la consola: el modal se abría con los
@@ -528,166 +522,314 @@
             .then(res => res.json())
             .then(data => {
                 if (data.error) {
-                    alert("Error: " + data.error);
+                    showToast(data.error, 'error');
                 } else {
-                    alert(data.message || "Configuración guardada correctamente.");
+                    showToast(data.message || 'Configuración guardada correctamente.');
                     closeModal();
                     loadSystemConfig(true);
                 }
             })
             .catch(err => {
                 console.error("Error guardando config:", err);
-                alert("Ocurrió un error al guardar los ajustes del sistema.");
+                showToast('No se pudieron guardar los ajustes: ' + (err.message || 'error desconocido'), 'error');
             });
         });
 
-        let proposalsCache = []; // Cache list loaded in fetchHistory
+        let proposalsCache = []; // Acumulado de propuestas ya cargadas
+        let historialOffset = 0;
+        let historialTotal = 0;
+        let historialCargando = false;
 
-        // Load History
-        function fetchHistory() {
-            fetch('/api/proposals', { headers: authHeaders() })
-                .then(res => res.json())
-                .then(data => {
-                    if (!Array.isArray(data)) {
-                        throw new Error(data && data.error ? data.error : 'Respuesta inesperada del servidor.');
-                    }
-                    const tbody = document.getElementById('historyTableBody');
+        const HISTORIAL_PAGINA = 50;
+
+        const fmtMoneda = (v) => v == null
+            ? '—'
+            : '$ ' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtNum = (v, sufijo) => v == null ? '—' : v + sufijo;
+
+        /**
+         * Lee del bullet "Facturable" del preview el importe bimoneda ya formateado.
+         * Devuelve null si no lo encuentra, para que el llamador decida el respaldo.
+         */
+        function importeFacturableDePreview(previewJson) {
+            if (!Array.isArray(previewJson) || previewJson.length === 0) return null;
+            // Un slide sin 'title' (guardado por una versión anterior) lanzaba
+            // TypeError y hacía perder toda la tabla.
+            const econSlide = previewJson.find(s => typeof s?.title === 'string' && s.title.includes("Propuesta Económica"));
+            if (!econSlide || !Array.isArray(econSlide.bullets)) return null;
+            const bullet = econSlide.bullets.find(b => typeof b === 'string' && b.includes("Facturable"));
+            if (!bullet) return null;
+            const partes = bullet.split("Facturable: ");
+            return partes.length > 1 ? partes[1] : null;
+        }
+
+        function actualizarDashboard(latest) {
+            // Un total_investment nulo (fila antigua o generación interrumpida)
+            // lanzaba TypeError y hacía perder TODO el historial mostrando un
+            // "error de conexión" falso aunque el servidor hubiera respondido bien.
+            let displayInvestment = fmtMoneda(latest.total_investment);
+            const facturable = importeFacturableDePreview(latest.preview_json);
+            if (facturable) {
+                const costParts = facturable.split(" / ");
+                displayInvestment = costParts.length > 1
+                    ? `${escapeHtml(costParts[0])}<span class="cell-secondary">${escapeHtml(costParts[1])}</span>`
+                    : escapeHtml(facturable);
+            }
+            document.getElementById('dashboardInvestment').innerHTML = displayInvestment;
+            document.getElementById('dashboardWeeks').innerText = fmtNum(latest.total_weeks, ' Semanas');
+            document.getElementById('dashboardRoi').innerText = fmtNum(latest.roi_five_years, ' %');
+            document.getElementById('dashboardPayback').innerText = fmtNum(latest.payback_period, ' Años');
+        }
+
+        function crearFilaHistorial(prop) {
+            const tr = document.createElement('tr');
+            tr.dataset.rowId = prop.id;
+
+            const compBadge = prop.complexity === 'Alta'
+                ? `<span class="badge badge-alta">Alta</span>`
+                : `<span class="badge badge-media">Media</span>`;
+
+            const editionBadge = prop.edition === 'Private'
+                ? `<span class="badge badge-private" title="RISE with SAP">Private</span>`
+                : `<span class="badge badge-public" title="GROW with SAP">Public</span>`;
+
+            // Misma protección que en el dashboard: hay filas antiguas
+            // (o de generaciones interrumpidas) con total_investment NULL,
+            // y sin el guard un solo registro tumbaba toda la tabla.
+            let tableInvStr = prop.total_investment == null
+                ? '—'
+                : '$ ' + Number(prop.total_investment).toLocaleString('en-US', { maximumFractionDigits: 0 });
+            const facturable = importeFacturableDePreview(prop.preview_json);
+            if (facturable) {
+                tableInvStr = facturable.replace(/\.00/g, ''); // decimales fuera para la vista corta
+            }
+
+            const safeName = escapeHtml(prop.company_name);
+            const safeSector = escapeHtml(prop.sector || '-');
+            tr.innerHTML = `
+                <td>
+                    <button type="button" class="link-button" data-preview-id="${prop.id}" title="Haz clic para previsualizar">
+                        ${safeName}
+                    </button>
+                </td>
+                <td>${compBadge}</td>
+                <td>${editionBadge}</td>
+                <td>${safeSector}</td>
+                <td>${escapeHtml(tableInvStr)}</td>
+                <td>${fmtNum(prop.total_weeks, ' sem')}</td>
+                <td>${fmtNum(prop.roi_five_years, ' %')}</td>
+                <td>
+                    <div class="row-actions">
+                        <button type="button" class="btn-download" data-download-id="${prop.id}">
+                            <i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> Descargar
+                        </button>
+                        <button type="button" class="btn-row-delete" data-delete-id="${prop.id}"
+                                title="Eliminar del historial"
+                                aria-label="Eliminar la propuesta de ${safeName}">
+                            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tr.querySelector('[data-preview-id]').addEventListener('click', () => {
+                viewHistoricalPreview(prop.id);
+            });
+            tr.querySelector('[data-delete-id]').addEventListener('click', () => {
+                eliminarPropuesta(prop.id, prop.company_name);
+            });
+            // Descarga por fetch (no <a href>) para poder mandar el token.
+            const btnDescarga = tr.querySelector('[data-download-id]');
+            btnDescarga.addEventListener('click', async () => {
+                btnDescarga.disabled = true;
+                try {
+                    await descargarArchivo('/download/' + prop.id);
+                } finally {
+                    btnDescarga.disabled = false;
+                }
+            });
+            return tr;
+        }
+
+        function actualizarPieHistorial() {
+            const pie = document.getElementById('historyFooter');
+            const contador = document.getElementById('historyCount');
+            const boton = document.getElementById('btnLoadMore');
+            if (!pie || !contador || !boton) return;
+            if (historialTotal === 0) {
+                pie.hidden = true;
+                return;
+            }
+            pie.hidden = false;
+            contador.textContent = `Mostrando ${proposalsCache.length} de ${historialTotal} propuestas`;
+            boton.hidden = proposalsCache.length >= historialTotal;
+            boton.disabled = historialCargando;
+        }
+
+        /**
+         * Carga el historial paginado. Con cientos de propuestas, traerlas todas
+         * de golpe (con su preview_json) llegaba a varios MB y bloqueaba el render.
+         * @param {boolean} anexar - true para añadir la siguiente página.
+         */
+        async function fetchHistory(anexar = false) {
+            if (historialCargando) return;
+            historialCargando = true;
+            const tbody = document.getElementById('historyTableBody');
+            if (!anexar) {
+                historialOffset = 0;
+                proposalsCache = [];
+            }
+            actualizarPieHistorial();
+
+            try {
+                const res = await fetch(`/api/proposals?limit=${HISTORIAL_PAGINA}&offset=${historialOffset}`, {
+                    headers: authHeaders()
+                });
+                const data = await res.json();
+                if (!Array.isArray(data)) {
+                    throw new Error(data && data.error ? data.error : 'Respuesta inesperada del servidor.');
+                }
+                // Si la cabecera falta (un proxy que la filtre), se asume que lo
+                // recibido es todo para no ofrecer un "Cargar más" que no avanza.
+                const totalCabecera = parseInt(res.headers.get('X-Total-Count'), 10);
+                historialTotal = Number.isFinite(totalCabecera)
+                    ? totalCabecera
+                    : (anexar ? proposalsCache.length + data.length : data.length);
+
+                if (!anexar) {
                     tbody.innerHTML = '';
-                    proposalsCache = data;
-                    
                     if (data.length === 0) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="8" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">
-                                    No hay propuestas en la base de datos local.
+                                <td colspan="8" class="table-state">
+                                    Aún no hay propuestas. Completa el formulario y pulsa
+                                    <strong>Generar PPTX</strong> para crear la primera.
                                 </td>
                             </tr>
                         `;
+                        ['dashboardInvestment', 'dashboardWeeks', 'dashboardRoi', 'dashboardPayback']
+                            .forEach(id => {
+                                const el = document.getElementById(id);
+                                if (el) el.textContent = '—';
+                            });
+                        historialTotal = 0;
                         return;
                     }
-                    
-                    // Prepopulate dashboard with the most recent proposal
-                    const latest = data[0];
-                    // Un total_investment nulo (fila antigua o generación interrumpida)
-                    // lanzaba TypeError y hacía perder TODO el historial mostrando un
-                    // "error de conexión" falso aunque el servidor hubiera respondido bien.
-                    const fmtMoneda = (v) => v == null
-                        ? '—'
-                        : '$ ' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                    const fmtNum = (v, sufijo) => v == null ? '—' : v + sufijo;
-                    let displayInvestment = fmtMoneda(latest.total_investment);
-                    
-                    // Cargar visualización bimoneda del dashboard de forma interactiva si existe en el preview JSON
-                    if (Array.isArray(latest.preview_json) && latest.preview_json.length > 0) {
-                        const econSlide = latest.preview_json.find(s => typeof s?.title === 'string' && s.title.includes("Propuesta Económica"));
-                        if (econSlide && Array.isArray(econSlide.bullets)) {
-                            const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
-                            if (facturableBullet) {
-                                const parts = facturableBullet.split("Facturable: ");
-                                if (parts.length > 1) {
-                                    const rawCost = parts[1];
-                                    // Separar USD y PEN
-                                    const costParts = rawCost.split(" / ");
-                                    if (costParts.length > 1) {
-                                        displayInvestment = `${escapeHtml(costParts[0])}<span style="font-size: 0.8rem; color: var(--color-text-muted); display: block; margin-top: 0.2rem;">${escapeHtml(costParts[1])}</span>`;
-                                    } else {
-                                        displayInvestment = escapeHtml(rawCost);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    document.getElementById('dashboardInvestment').innerHTML = displayInvestment;
-                    document.getElementById('dashboardWeeks').innerText = fmtNum(latest.total_weeks, ' Semanas');
-                    document.getElementById('dashboardRoi').innerText = fmtNum(latest.roi_five_years, ' %');
-                    document.getElementById('dashboardPayback').innerText = fmtNum(latest.payback_period, ' Años');
-                    
-                    data.forEach(prop => {
-                        const tr = document.createElement('tr');
-                        
-                        const compBadge = prop.complexity === 'Alta'
-                            ? `<span class="badge badge-alta">Alta</span>`
-                            : `<span class="badge badge-media">Media</span>`;
+                    actualizarDashboard(data[0]);
+                }
 
-                        const editionBadge = prop.edition === 'Private'
-                            ? `<span class="badge badge-private" title="RISE with SAP">Private</span>`
-                            : `<span class="badge badge-public" title="GROW with SAP">Public</span>`;
+                const fragmento = document.createDocumentFragment();
+                data.forEach(prop => fragmento.appendChild(crearFilaHistorial(prop)));
+                tbody.appendChild(fragmento);
 
-                        let tableInvStr = '$ ' + prop.total_investment.toLocaleString('en-US', {maximumFractionDigits: 0});
-                        
-                        // Extract dual currency totals for the table as well
-                        if (prop.preview_json && prop.preview_json.length > 0) {
-                            const econSlide = prop.preview_json.find(s => s.title.includes("Propuesta Económica"));
-                            if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
-                                const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
-                                if (facturableBullet) {
-                                    const parts = facturableBullet.split("Facturable: ");
-                                    if (parts.length > 1) {
-                                        tableInvStr = parts[1].replace(".00", "").replace(".00", ""); // Clean decimals for short display
-                                    }
-                                }
-                            }
-                        }
-                        
-                        const safeName = escapeHtml(prop.company_name);
-                        const safeSector = escapeHtml(prop.sector || '-');
-                        tr.innerHTML = `
-                            <td>
-                                <a href="#" onclick="event.preventDefault(); viewHistoricalPreview(${prop.id})" style="color: white; text-decoration: underline; font-weight: bold;" title="Haz clic para previsualizar">
-                                    ${safeName}
-                                </a>
-                            </td>
-                            <td>${compBadge}</td>
-                            <td>${editionBadge}</td>
-                            <td>${safeSector}</td>
-                            <td>${tableInvStr}</td>
-                            <td>${prop.total_weeks} sem</td>
-                            <td>${prop.roi_five_years} %</td>
-                            <td>
-                                <a href="/download/${prop.id}" class="btn-download">
-                                    <i class="fa-solid fa-cloud-arrow-down"></i> Descargar
-                                </a>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                })
-                .catch(err => {
-                    console.error("Error loading history:", err);
-                    document.getElementById('historyTableBody').innerHTML = `
+                proposalsCache = proposalsCache.concat(data);
+                historialOffset = proposalsCache.length;
+            } catch (err) {
+                console.error("Error loading history:", err);
+                if (!anexar) {
+                    tbody.innerHTML = `
                         <tr>
-                            <td colspan="8" style="text-align: center; color: #dc3545; padding: 2rem;">
+                            <td colspan="8" class="table-state table-state--error">
                                 Error al conectar con el servidor local.
                             </td>
                         </tr>
                     `;
-                });
+                    historialTotal = 0;
+                } else {
+                    showToast('No se pudieron cargar más propuestas: ' + (err.message || 'error desconocido'), 'error');
+                }
+            } finally {
+                historialCargando = false;
+                actualizarPieHistorial();
+            }
         }
+
+        document.getElementById('btnLoadMore').addEventListener('click', () => fetchHistory(true));
 
         function viewHistoricalPreview(id) {
             const prop = proposalsCache.find(p => p.id === id);
             if (prop && prop.preview_json && prop.preview_json.length > 0) {
                 renderPreviewDeck(prop.preview_json);
             } else {
-                alert("Esta propuesta no cuenta con datos de previsualización.");
+                showToast('Esta propuesta no cuenta con datos de previsualización.', 'error');
             }
         }
 
-        // Hamburger and Sidebar Toggle logic for mobile
+        /**
+         * Elimina una propuesta del historial (y su PPTX en el servidor).
+         * Antes no existía forma de hacerlo: una propuesta generada por error
+         * contaminaba el panel de métricas de forma permanente.
+         */
+        async function eliminarPropuesta(id, nombre) {
+            if (!confirm(`¿Eliminar la propuesta de "${nombre}" del historial? Se borrará también su archivo PPTX.`)) return;
+            try {
+                const data = await fetchJson('/api/proposals/' + id, { method: 'DELETE' });
+                if (data.success) {
+                    showToast(data.message || 'Propuesta eliminada.');
+                    // Se quita solo la fila borrada. Recargar el historial
+                    // completo devolvía al usuario a la primera página de 50:
+                    // borrar la propuesta 380 le hacía perder todo el listado
+                    // que había cargado.
+                    const fila = document.querySelector(`#historyTableBody tr[data-row-id="${id}"]`);
+                    const eraLaPrimera = proposalsCache.length > 0 && proposalsCache[0].id === id;
+                    if (fila) fila.remove();
+                    proposalsCache = proposalsCache.filter(p => p.id !== id);
+                    historialTotal = Math.max(0, historialTotal - 1);
+                    historialOffset = proposalsCache.length;
+
+                    if (proposalsCache.length === 0 || eraLaPrimera) {
+                        // El dashboard refleja la propuesta más reciente: si esa
+                        // es la que se ha borrado, hay que volver a pedirla.
+                        fetchHistory();
+                    } else {
+                        actualizarPieHistorial();
+                    }
+                } else {
+                    showToast(data.error || 'No se pudo eliminar la propuesta.', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'No se pudo eliminar la propuesta.', 'error');
+            }
+        }
+
+        // --- Cajón lateral (móvil) ---
         const hamburgerBtn = document.getElementById('hamburgerBtn');
-        const sidebar = document.querySelector('.container > div:first-child');
+        // Clase explícita en vez de '.container > div:first-child': ese selector
+        // estructural rompía el menú en silencio al reordenar el contenedor.
+        const sidebar = document.getElementById('formSidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+
+        function abrirCajon(abrir) {
+            if (!sidebar || !sidebarOverlay) return;
+            sidebar.classList.toggle('show-sidebar', abrir);
+            sidebarOverlay.classList.toggle('show', abrir);
+            if (hamburgerBtn) hamburgerBtn.setAttribute('aria-expanded', String(abrir));
+            if (abrir) {
+                sidebar.querySelector('input, select, button')?.focus();
+            } else if (hamburgerBtn) {
+                hamburgerBtn.focus();
+            }
+        }
 
         if (hamburgerBtn && sidebar && sidebarOverlay) {
             hamburgerBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('show-sidebar');
-                sidebarOverlay.classList.toggle('show');
+                abrirCajon(!sidebar.classList.contains('show-sidebar'));
             });
-            
-            sidebarOverlay.addEventListener('click', () => {
-                sidebar.classList.remove('show-sidebar');
-                sidebarOverlay.classList.remove('show');
+            sidebarOverlay.addEventListener('click', () => abrirCajon(false));
+            drawerCloseBtn?.addEventListener('click', () => abrirCajon(false));
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && sidebar.classList.contains('show-sidebar')) {
+                    abrirCajon(false);
+                }
+            });
+
+            // Si se agranda la ventana con el cajón abierto, el layout vuelve a
+            // dos columnas pero el overlay se quedaba encima bloqueando la UI.
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768 && sidebar.classList.contains('show-sidebar')) {
+                    abrirCajon(false);
+                }
             });
         }
 
@@ -726,7 +868,7 @@
 
             const companyName = document.getElementById('companyName').value.trim();
             if (!companyName) {
-                alert("Por favor, ingrese el nombre de la empresa.");
+                showToast('Ingresa el nombre de la empresa.', 'error');
                 return;
             }
             
@@ -853,18 +995,25 @@
                     previewBtn.disabled = false;
                     
                     if (data.error) {
-                        alert("Error: " + data.error);
+                        showToast(data.error, 'error');
                     } else {
                         // El historial primero: si el render del preview fallaba,
                         // la propuesta ya generada no aparecía en la tabla y
                         // parecía que había fallado.
-                        if (isGenerate) fetchHistory();
+                        if (isGenerate) {
+                            fetchHistory();
+                            // Solo se limpia la empresa: el resto del contexto
+                            // (licencias, sector, tarifas, edición) se conserva
+                            // para poder generar variantes del mismo cliente.
+                            document.getElementById('companyName').value = '';
+                            document.getElementById('companyName').focus();
+                        }
                         mostrarAdvertencias(data.advertencias);
                         try {
                             renderPreviewDeck(data.slides_preview);
                         } catch (e) {
                             console.error('[preview]', e);
-                            alert('La propuesta se generó correctamente, pero no se pudo mostrar la previsualización.');
+                            showToast('La propuesta se generó correctamente, pero no se pudo mostrar la previsualización.', 'error');
                         }
                     }
                 }, 500);
@@ -874,7 +1023,7 @@
                 overlay.style.display = 'none';
                 submitBtn.disabled = false;
                 previewBtn.disabled = false;
-                alert("Ocurrió un error en el servidor local. Revise la consola.");
+                showToast(err.message || 'Ocurrió un error en el servidor local.', 'error');
             });
         };
 
@@ -888,59 +1037,47 @@
         let activeSlides = [];
         
         function renderPreviewDeck(slides) {
-            if (!slides || slides.length === 0) return;
-            activeSlides = slides;
-            
             const previewCard = document.getElementById('previewCard');
             const previewTabs = document.getElementById('previewTabs');
-            
+
+            // Antes retornaba en silencio: el usuario pulsaba "Previsualizar",
+            // el overlay corría sus pasos, se cerraba y no pasaba nada.
+            if (!Array.isArray(slides) || slides.length === 0) {
+                previewCard.style.display = 'none';
+                showToast('No se pudo generar la previsualización de la propuesta.', 'error');
+                return;
+            }
+            activeSlides = slides;
+
             previewCard.style.display = 'block';
             previewTabs.innerHTML = '';
-            
+
             slides.forEach((slide, idx) => {
                 const btn = document.createElement('button');
-                btn.innerText = `Lám. ${slide.num}`;
-                btn.style.cssText = `
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(0, 168, 235, 0.2);
-                    color: var(--color-text-muted);
-                    padding: 0.4rem 0.8rem;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    white-space: nowrap;
-                    transition: all var(--transition-speed);
-                `;
-                
-                if (idx === 0) {
-                    btn.style.background = 'var(--color-secondary)';
-                    btn.style.color = 'white';
-                    btn.style.borderColor = 'var(--color-secondary)';
-                }
-                
+                btn.type = 'button';
+                // Clases en vez de style.cssText: así las media queries de
+                // style.css pueden ajustar la pestaña en móvil.
+                btn.className = 'preview-tab' + (idx === 0 ? ' active' : '');
+                btn.textContent = `Diapositiva ${slide.num}`;
+                btn.setAttribute('role', 'tab');
+                btn.setAttribute('aria-selected', idx === 0 ? 'true' : 'false');
+                btn.setAttribute('aria-label', `Diapositiva ${slide.num}: ${slide.title || ''}`);
+
                 btn.addEventListener('click', () => {
-                    // Cambiar estilo de pestañas activas
                     Array.from(previewTabs.children).forEach(child => {
-                        child.style.background = 'rgba(255, 255, 255, 0.05)';
-                        child.style.color = 'var(--color-text-muted)';
-                        child.style.borderColor = 'rgba(0, 168, 235, 0.2)';
+                        child.classList.remove('active');
+                        child.setAttribute('aria-selected', 'false');
                     });
-                    btn.style.background = 'var(--color-secondary)';
-                    btn.style.color = 'white';
-                    btn.style.borderColor = 'var(--color-secondary)';
-                    
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-selected', 'true');
                     showMockSlide(slide);
                 });
-                
+
                 previewTabs.appendChild(btn);
             });
-            
-            // Mostrar la primera por defecto
+
             showMockSlide(slides[0]);
-            
-            // Scroll suave a la sección
-            previewCard.scrollIntoView({ behavior: 'smooth' });
+            scrollSuave(previewCard);
         }
         
         function showMockSlide(slide) {
@@ -960,10 +1097,21 @@
         }
 
         // Initialize Page
-        window.addEventListener('DOMContentLoaded', () => {
+        function iniciarApp() {
             fetchHistory();
-            loadSystemConfig();
-        });
+            // true: en el arranque sí se sincronizan los campos del formulario
+            // con la configuración global guardada.
+            loadSystemConfig(true);
+        }
+
+        // El script es inline al final de <body>, así que el DOM ya está listo.
+        // Si algún día pasa a un fichero externo con defer, DOMContentLoaded ya
+        // habría disparado y la app arrancaría vacía sin ningún error visible.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', iniciarApp);
+        } else {
+            iniciarApp();
+        }
     </script>
 </body>
 </html>
