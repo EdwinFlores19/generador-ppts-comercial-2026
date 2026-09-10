@@ -16,6 +16,7 @@ RANGE_VALIDATORS = {
     'anos_roi': (1, 20, "Los años de proyección del ROI deben estar entre 1 y 20 años."),
     'factor_igv': (0.0, 0.50, "El factor IGV de impuestos debe estar entre 0% y 50% (0.0 a 0.50)."),
     'tipo_cambio_pen': (1.0, 10.0, "El tipo de cambio a PEN debe estar entre 1.0 y 10.0."),
+    'factor_ahorro': (0.001, 0.50, "El factor de ahorro anual debe estar entre 0.1% y 50% de la facturación (0.001 a 0.50)."),
 }
 
 

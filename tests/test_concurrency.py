@@ -2,7 +2,7 @@ import threading
 import sqlite3
 import time
 import random
-from models.database import DB_NAME
+from models.database import DB_NAME, get_db_connection
 
 
 class TestDatabaseConcurrency:
@@ -50,14 +50,18 @@ class TestDatabaseConcurrency:
         assert len(errors) == 0, f"Errores en escritura concurrente: {errors}"
 
     def test_concurrent_read_write(self):
+        """
+        Lecturas y escrituras realmente solapadas (sin lock de Python que las
+        serialice): así el test ejercita el journal WAL y el busy_timeout de
+        models.database en lugar de dar un falso positivo.
+        """
         errors = []
-        lock = threading.Lock()
 
         def mixed_operation():
             try:
                 for _ in range(3):
-                    with lock:
-                        conn = sqlite3.connect(DB_NAME)
+                    conn = get_db_connection()
+                    try:
                         cursor = conn.cursor()
                         cursor.execute("SELECT COUNT(*) FROM configuracion_comercial")
                         cursor.fetchone()
@@ -66,6 +70,7 @@ class TestDatabaseConcurrency:
                             VALUES (?, ?)
                         """, (f"Mixed {time.time()}", "Alta"))
                         conn.commit()
+                    finally:
                         conn.close()
                     time.sleep(random.uniform(0.05, 0.15))
             except Exception as e:

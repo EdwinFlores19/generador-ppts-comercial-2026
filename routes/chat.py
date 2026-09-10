@@ -4,7 +4,7 @@ import json
 import traceback
 import logging
 from contextlib import closing
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app
 from middleware.auth import require_auth
 from middleware.rate_limit import rate_limit
@@ -73,7 +73,7 @@ def _save_proposal_data(session_id, extracted_data, title):
             """, (
                 json.dumps(extracted_data, ensure_ascii=False),
                 title,
-                datetime.now().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 session_id
             ))
 
@@ -98,8 +98,8 @@ def chat_create_session():
                 """, (
                     title,
                     json.dumps([]),
-                    datetime.now().isoformat(),
-                    datetime.now().isoformat()
+                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(timezone.utc).isoformat()
                 ))
                 session_id = cursor.lastrowid
 
@@ -150,7 +150,7 @@ def chat_send_message():
                     WHERE id = ?
                 """, (
                     json.dumps(updated_history, ensure_ascii=False),
-                    datetime.now().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     session_id
                 ))
 
@@ -310,7 +310,11 @@ def chat_generate_proposal(session_id):
 
         output_dir = current_app.config.get('OUTPUT_DIR', 'generated_decks')
         safe_name = re.sub(r'[\\/*?:"<>|]', '_', company_name)
-        filename = f"Propuesta_{safe_name.replace(' ', '_')}_{complexity}_Chatbot.pptx"
+        # Sello temporal en el nombre: sin él, regenerar la misma propuesta
+        # sobreescribía el PPTX anterior y varias filas del historial apuntaban
+        # al mismo archivo (el último generado).
+        sello = datetime.now().strftime('%Y%m%d-%H%M%S')
+        filename = f"Propuesta_{safe_name.replace(' ', '_')}_{complexity}_Chatbot_{sello}.pptx"
         ppt_path = os.path.join(output_dir, filename)
 
         services.ppt_generator.generate_deck(
@@ -357,7 +361,7 @@ def chat_generate_proposal(session_id):
                     UPDATE chat_sessions
                     SET proposal_id = ?, updated_at = ?
                     WHERE id = ?
-                """, (proposal_id, datetime.now().isoformat(), session_id))
+                """, (proposal_id, datetime.now(timezone.utc).isoformat(), session_id))
 
         return jsonify({
             'success': True,
@@ -369,6 +373,7 @@ def chat_generate_proposal(session_id):
             'total_weeks': summary['total_weeks'],
             'roi': summary['roi_five_years'],
             'payback': summary['payback_period'],
+            'advertencias': summary.get('advertencias', []),
             'download_url': f'/download/{proposal_id}'
         })
 

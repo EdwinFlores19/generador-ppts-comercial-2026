@@ -1,9 +1,15 @@
+import os
+import sys
 import threading
 import sqlite3
 import time
 import random
 
-DB_NAME = "proposals.db"
+# Respeta la misma variable de entorno que la aplicación: si DB_NAME apunta a
+# otra ruta (p. ej. en PythonAnywhere), el script actúa sobre la BD correcta.
+DB_NAME = os.getenv("DB_NAME", "proposals.db")
+
+_errors = []
 
 def run_db_operations(thread_id):
     """
@@ -50,7 +56,7 @@ def run_db_operations(thread_id):
         print(f"Hilo {thread_id} finalizado de forma SEGURA.")
     except Exception as e:
         print(f"ERROR en Hilo {thread_id}: {e}")
-        raise e
+        _errors.append(f"Hilo {thread_id}: {e}")
 
 def run_concurrency_test():
     print("==================================================")
@@ -62,13 +68,40 @@ def run_concurrency_test():
         t = threading.Thread(target=run_db_operations, args=(i+1,))
         threads.append(t)
         t.start()
-        
+
     for t in threads:
         t.join()
-        
+
+    # Las excepciones de un hilo no se propagan al join: sin esta comprobación
+    # el script imprimía "ÉXITO" incluso si los tres hilos habían fallado.
+    if _errors:
+        print("\n==================================================")
+        print(f"TEST DE CONCURRENCIA FALLIDO: {len(_errors)} error(es)")
+        for err in _errors:
+            print(f"  - {err}")
+        print("==================================================")
+        _cleanup_simulation_rows()
+        sys.exit(1)
+
+    _cleanup_simulation_rows()
     print("\n==================================================")
     print("¡TEST DE CONCURRENCIA DE SQLITE COMPLETADO CON ÉXITO!")
     print("==================================================")
+
+
+def _cleanup_simulation_rows():
+    """
+    Borra las filas de simulación. Sin esto, cada ejecución dejaba propuestas
+    basura ('Empresa Concurrente N (Simulación Carga)') visibles en el
+    historial real del usuario en la interfaz web.
+    """
+    try:
+        with sqlite3.connect(DB_NAME, timeout=30.0) as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM proposals WHERE company_name LIKE ?", ('%(Simulación Carga)',))
+            print(f"\nLimpieza: {cur.rowcount} fila(s) de simulación eliminadas de {DB_NAME}.")
+    except Exception as e:
+        print(f"\nADVERTENCIA: no se pudieron limpiar las filas de simulación: {e}")
 
 if __name__ == "__main__":
     run_concurrency_test()

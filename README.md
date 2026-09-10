@@ -65,7 +65,9 @@ graph TD
 
 ### Opción A: Despliegue con Docker y Docker Compose (alternativa self-hosted)
 
-> El despliegue de referencia en producción es **PythonAnywhere** (ver `deploy/pythonanywhere_wsgi.py`), por disco persistente gratuito. Docker es una alternativa válida para self-hosting en tu propia infraestructura.
+> El despliegue de referencia en producción es **PythonAnywhere** (ver `deploy/pythonanywhere_wsgi.py` y el **[runbook de operación](deploy/RUNBOOK.md)**), por disco persistente gratuito. Docker es una alternativa válida para self-hosting en tu propia infraestructura.
+>
+> ⚠️ **El plan gratuito de PythonAnywhere apaga la web app cada ~1 mes.** Es la causa #1 de caídas y se reactiva con un clic — ver [sección 1 del runbook](deploy/RUNBOOK.md).
 
 1. **Configurar Variables de Entorno:**
    Cree o configure las variables en su archivo `.env` (ver `config/.env.template`) o directamente en el `docker-compose.yml`:
@@ -127,3 +129,4 @@ Los parámetros base para las cotizaciones comerciales y la localización financ
 | `anos_roi` | `5.00` | Años de proyección financiera para el ROI del proyecto (5 años). |
 | `factor_igv` | `0.18` | Tasa del Impuesto General a las Ventas en el Perú (18%). |
 | `tipo_cambio_pen` | `3.78` | Tipo de cambio oficial de Dólar (USD) a Soles (PEN). |
+| `factor_ahorro` | `0.015` | Ahorro anual estimado como % de la facturación del prospecto (1.5%). Base del cálculo de ROI y payback. |

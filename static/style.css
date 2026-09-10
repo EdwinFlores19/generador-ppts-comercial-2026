@@ -143,6 +143,14 @@ nav {
     gap: 2rem;
 }
 
+/* Los items de grid tienen min-width:auto por defecto, así que la columna 1fr
+   no podía encogerse por debajo del min-content de la fila de métricas y de la
+   tabla de 8 columnas: eso desbordaba .container y generaba scroll horizontal
+   de TODA la página (arrastrando el nav sticky). */
+.container > * {
+    min-width: 0;
+}
+
 /* Glass Cards */
 .card {
     background: var(--gradient-card);
@@ -370,7 +378,21 @@ td {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     color: var(--color-text-muted);
     background-color: rgba(11, 35, 71, 0.2);
-    white-space: nowrap;
+}
+
+/* Sin nowrap en las celdas: con 8 columnas (Empresa, Complejidad, Edición,
+   Sector, Inversión bimoneda, Semanas, ROI, Acción) el ancho mínimo superaba
+   los 1100px y forzaba scroll interno en todas las pantallas de portátil. */
+td:first-child {
+    min-width: 9rem;
+}
+
+td .cell-secondary {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    opacity: 0.85;
+    margin-top: 0.15rem;
 }
 
 tr:hover td {
@@ -384,6 +406,20 @@ tr:hover td {
     border-radius: 4px;
     font-size: 0.75rem;
     font-weight: 600;
+}
+
+/* Edición SAP: son dos productos (GROW vs RISE), no niveles de riesgo, así que
+   NO reutilizan los colores rojo/ámbar de la columna Complejidad. */
+.badge-public {
+    background: rgba(0, 168, 235, 0.15);
+    border: 1px solid var(--color-secondary);
+    color: #9adcff;
+}
+
+.badge-private {
+    background: rgba(126, 87, 194, 0.18);
+    border: 1px solid #9575cd;
+    color: #d1c4e9;
 }
 
 .badge-alta {
@@ -689,11 +725,11 @@ tr:hover td {
 
 /* Desktop / Large Screen (> 1024px) */
 @media (min-width: 1025px) {
-    .container {
-        grid-template-columns: 430px 1fr;
-    }
+    /* auto-fit en lugar de repeat(4, 1fr) rígido: con 4 columnas fijas el
+       min-content de las métricas bimoneda (~690px) excedía la columna
+       disponible en portátiles y desbordaba el layout. */
     .stats-grid {
-        grid-template-columns: repeat(4, 1fr); /* 4 Columnas para las métricas */
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     }
 }
 
@@ -815,5 +851,96 @@ tr:hover td {
     
     #slideMockup div {
         font-size: 0.7rem;
+    }
+}
+
+/* =========================================================================
+   ACCESIBILIDAD Y UTILIDADES COMPARTIDAS (usadas por index.html y chatbot.html)
+   ========================================================================= */
+
+/* Texto solo para lectores de pantalla */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Foco visible en TODOS los controles: antes solo .form-control tenía estilo de
+   foco, así que navegar con teclado por los botones era prácticamente a ciegas
+   sobre el fondo oscuro. */
+:where(a, button, [tabindex], input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Enlace "Volver al Inicio" del chatbot: la clase .btn-back se usaba en el HTML
+   pero no estaba definida en ninguna hoja, así que se renderizaba sin estilo. */
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 168, 235, 0.35);
+    background: rgba(0, 168, 235, 0.08);
+    color: var(--color-text-bright);
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: background var(--transition-speed), border-color var(--transition-speed);
+}
+
+.btn-back:hover {
+    background: rgba(0, 168, 235, 0.18);
+    border-color: var(--color-secondary);
+}
+
+/* Avisos comerciales del motor financiero (ROI negativo, payback fuera de
+   horizonte). Son internos para el consultor: nunca se imprimen en el PPTX. */
+.advisory-box {
+    margin-top: 1rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 10px;
+    border: 1px solid #eccc68;
+    border-left-width: 4px;
+    background: rgba(236, 204, 104, 0.10);
+}
+
+.advisory-box h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    color: #ffe08a;
+    font-family: var(--font-heading);
+}
+
+.advisory-box ul {
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+.advisory-box li {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    margin-bottom: 0.35rem;
+}
+
+/* Respeta la preferencia del sistema de movimiento reducido (el icono flotante
+   del chatbot animaba indefinidamente). Único caso donde !important se
+   justifica: debe ganar a cualquier animación declarada después. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }

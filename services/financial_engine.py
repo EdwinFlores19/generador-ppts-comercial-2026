@@ -54,7 +54,8 @@ def load_db_config():
         'margen_saas': 0.20,
         'anos_roi': 5.0,
         'factor_igv': 0.18,
-        'tipo_cambio_pen': 3.78
+        'tipo_cambio_pen': 3.78,
+        'factor_ahorro': 0.015
     }
     
     if os.path.exists(DB_NAME):
@@ -212,6 +213,19 @@ def _validate_config(config, db_config, active_modules_list):
     if not (0.0 <= factor_igv <= 0.50):
         raise ValueError("Límite de localización: El factor de impuesto de IGV debe estar en el rango de 0% a 50%.")
 
+    # Comprobación explícita contra None: con `or`, un factor de 0 (que implica
+    # payback infinito) se tomaba como ausente y caía silenciosamente al default
+    # en lugar de rechazarse.
+    factor_ahorro_raw = config.get('savings_factor')
+    if factor_ahorro_raw is None:
+        factor_ahorro_raw = db_config.get('factor_ahorro', 0.015)
+    try:
+        factor_ahorro = float(factor_ahorro_raw)
+    except (TypeError, ValueError):
+        raise ValueError("Límite comercial: El factor de ahorro anual debe ser un número.")
+    if not (0.0 < factor_ahorro <= 0.50):
+        raise ValueError("Límite comercial: El factor de ahorro anual debe estar entre 0% y 50% de la facturación.")
+
     annual_revenue = float(config.get('annual_revenue') or 10000000.0)
     if annual_revenue <= 0.0:
         raise ValueError("Error comercial: La facturación anual de la empresa debe ser mayor a cero.")
@@ -227,7 +241,8 @@ def _validate_config(config, db_config, active_modules_list):
     return {
         'consulting_rate': consulting_rate, 'support_fraction': support_fraction,
         'saas_margin': saas_margin, 'anos_roi': anos_roi, 'tipo_cambio': tipo_cambio,
-        'factor_igv': factor_igv, 'annual_revenue': annual_revenue, 'modular_licenses': modular_licenses
+        'factor_igv': factor_igv, 'annual_revenue': annual_revenue, 'modular_licenses': modular_licenses,
+        'factor_ahorro': factor_ahorro
     }
 
 
@@ -324,6 +339,38 @@ def _build_bimoneda_summary(total_investment_y1_net, consulting_cost, licensing_
     return usd, pen
 
 
+def _build_advisories(roi_project, payback_period, cfg):
+    """
+    Genera advertencias comerciales para el consultor ANTES de que la propuesta
+    llegue al cliente. Un ROI negativo o un payback mayor al horizonte de
+    proyección son matemáticamente correctos pero imposibles de defender en una
+    mesa comercial: casi siempre significan que la facturación estimada del
+    prospecto es baja frente al alcance elegido, o que el factor de ahorro no
+    corresponde al sector. Estas advertencias son internas (no se imprimen en
+    el PPTX del cliente).
+    """
+    avisos = []
+    anos = cfg['anos_roi']
+    if roi_project < 0:
+        avisos.append(
+            f"ROI negativo ({roi_project:.1f}% a {anos} años): la inversión no se recupera con los "
+            f"supuestos actuales. Revise la facturación anual del prospecto, reduzca el alcance "
+            f"modular, o ajuste el factor de ahorro (hoy {cfg['factor_ahorro'] * 100:.2f}% de la "
+            f"facturación) al benchmark del sector antes de presentar."
+        )
+    elif roi_project < 50:
+        avisos.append(
+            f"ROI ajustado ({roi_project:.1f}% a {anos} años): el caso de negocio es débil. "
+            f"Considere revisar los supuestos antes de presentar."
+        )
+    if payback_period > anos:
+        avisos.append(
+            f"Periodo de recupero ({payback_period:.2f} años) mayor al horizonte de proyección "
+            f"({anos} años): el gráfico de ROI mostrará el TCO siempre por encima de los ahorros."
+        )
+    return avisos
+
+
 def calculate_financials(active_modules_list, config=None):
     """
     Realiza la lectura cacheada del estimador y computa de forma exacta las horas de consultoría,
@@ -355,7 +402,10 @@ def calculate_financials(active_modules_list, config=None):
     support_cost_annual = consulting_cost * cfg['support_fraction']
     total_investment_y1_net = consulting_cost + licensing_cost_markup + support_cost_annual
 
-    savings_annual = cfg['annual_revenue'] * 0.015  # 1.5% savings estimate based on industry benchmarks
+    # Ahorro anual estimado como % de la facturación. El factor es configurable
+    # (tabla configuracion_comercial / panel de Ajustes) para que el consultor
+    # pueda justificar el benchmark por sector en lugar de un número fijo.
+    savings_annual = cfg['annual_revenue'] * cfg['factor_ahorro']
     tco_project_usd = consulting_cost + (licensing_cost_markup * cfg['anos_roi']) + (support_cost_annual * cfg['anos_roi'])
     tco_project_pen = tco_project_usd * cfg['tipo_cambio']
     savings_project_usd = savings_annual * cfg['anos_roi']
@@ -374,9 +424,12 @@ def calculate_financials(active_modules_list, config=None):
         cfg['factor_igv'], cfg['tipo_cambio']
     )
 
+    advertencias = _build_advisories(roi_project, payback_period, cfg)
+
     return {
         'modules': modules_details,
         'summary': {
+            'advertencias': advertencias,
             'total_weeks': round(total_weeks, 2), 'total_hours': round(total_hours, 2),
             'consulting_cost': round(consulting_cost, 2),
             'licensing_cost': round(licensing_cost_markup, 2),

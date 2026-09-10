@@ -25,7 +25,7 @@
                 <div class="spinner"></div>
                 <div class="spinner-inner-icon"><i class="fa-solid fa-cloud-arrow-down"></i></div>
             </div>
-            <div class="loading-text" id="loadingText">Scraping e Investigando en la Web...</div>
+            <div class="loading-text" id="loadingText">Investigando la huella digital de la empresa...</div>
             
             <div class="progress-bar-container">
                 <div class="progress-bar-fill" id="progressBarFill"></div>
@@ -34,7 +34,7 @@
             <div class="loading-steps" id="loadingStepsContainer">
                 <div class="loading-step active" id="step1">
                     <i class="fa-solid fa-magnifying-glass step-icon"></i>
-                    <span>Investigando huella digital (Scraping)</span>
+                    <span>Analizando presencia web de la empresa</span>
                 </div>
                 <div class="loading-step" id="step2">
                     <i class="fa-solid fa-gears step-icon"></i>
@@ -58,7 +58,7 @@
             <button class="hamburger-btn" id="hamburgerBtn" title="Menú de Navegación">
                 <i class="fa-solid fa-bars"></i>
             </button>
-            <a href="#" class="nav-logo">
+            <a href="/" class="nav-logo">
                 <i class="fa-solid fa-file-powerpoint"></i>
                 <span>GROW Deck <span class="highlight">Automator</span></span>
             </a>
@@ -92,12 +92,12 @@
                         <label for="companyName">Nombre de la Empresa</label>
                         <div class="input-group">
                             <i class="fa-solid fa-briefcase"></i>
-                            <input type="text" id="companyName" class="form-control" placeholder="Ej: Alicorp S.A.A." required>
+                            <input type="text" id="companyName" class="form-control" maxlength="200" autocomplete="organization" placeholder="Ej: Alicorp S.A.A." required>
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label for="companySector">Sector Industrial (Fallback)</label>
+                        <label for="companySector">Sector Industrial (si no se detecta automáticamente)</label>
                         <div class="input-group">
                             <i class="fa-solid fa-industry"></i>
                             <select id="companySector" class="form-control" required>
@@ -115,7 +115,7 @@
                         <label for="annualRevenue">Facturación Anual Proyectada (USD)</label>
                         <div class="input-group">
                             <i class="fa-solid fa-coins"></i>
-                            <input type="number" id="annualRevenue" class="form-control" value="15000000" min="1000000">
+                            <input type="number" id="annualRevenue" class="form-control" value="15000000" min="1" step="1000" required autocomplete="off">
                         </div>
                     </div>
                     
@@ -124,9 +124,9 @@
                         <div class="input-group">
                             <i class="fa-solid fa-gears"></i>
                             <select id="complexityMode" class="form-control">
-                                <option value="auto">Automático (Scraper determina)</option>
-                                <option value="alta">Forzar Complejidad Alta (12 Slides)</option>
-                                <option value="media">Forzar Complejidad Media (11 Slides)</option>
+                                <option value="auto">Automático (según análisis web)</option>
+                                <option value="alta">Forzar Complejidad Alta (incluye CO y PS)</option>
+                                <option value="media">Forzar Complejidad Media (sin CO ni PS)</option>
                             </select>
                         </div>
                     </div>
@@ -143,24 +143,24 @@
                     </div>
                     
                     <!-- Advanced Pricing Config Accordion -->
-                    <div class="accordion-header" id="configToggle">
+                    <button type="button" class="accordion-header" id="configToggle" aria-expanded="false" aria-controls="configContent">
                         <span>Configuración de Tarifas y Licencias</span>
                         <i class="fa-solid fa-chevron-down" id="configArrow"></i>
-                    </div>
+                    </button>
                     
                     <div class="accordion-content" id="configContent">
                         <div class="form-group">
                             <label for="consultingRate">Tarifa de Consultoría ($/Hora)</label>
                             <div class="input-group">
                                 <i class="fa-solid fa-clock"></i>
-                                <input type="number" id="consultingRate" class="form-control" value="60">
+                                <input type="number" id="consultingRate" class="form-control" value="60" min="10" max="1000" step="0.01" required autocomplete="off">
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="supportPercentage">AMS - Soporte Post Go-Live (% de Impl.)</label>
                             <div class="input-group">
                                 <i class="fa-solid fa-headset"></i>
-                                <input type="number" id="supportPercentage" class="form-control" value="15">
+                                <input type="number" id="supportPercentage" class="form-control" value="15" min="0" max="100" step="0.1" required autocomplete="off">
                             </div>
                         </div>
                         
@@ -219,7 +219,7 @@
                 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Inversión Inicial Facturable (IGV Inc)</div>
+                        <div class="stat-label">Inversión Inicial Facturable (IGV incluido)</div>
                         <div class="stat-value stat-highlight" id="dashboardInvestment">-</div>
                     </div>
                     <div class="stat-card">
@@ -227,16 +227,22 @@
                         <div class="stat-value" id="dashboardWeeks">-</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Retorno de Inversión (ROI)</div>
+                        <div class="stat-label" data-roi-label>Retorno de Inversión (ROI)</div>
                         <div class="stat-value" id="dashboardRoi">-</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Período de Recupero</div>
+                        <div class="stat-label">Periodo de Recuperación</div>
                         <div class="stat-value" id="dashboardPayback">-</div>
                     </div>
                 </div>
             </div>
             
+            <!-- Advertencias comerciales internas (no se imprimen en el PPTX) -->
+            <div class="advisory-box" id="advisoryBox" style="display: none;" role="alert">
+                <h4><i class="fa-solid fa-triangle-exclamation"></i> Revisar antes de presentar al cliente</h4>
+                <ul id="advisoryList"></ul>
+            </div>
+
             <!-- Real-Time Slide Mockup Preview Deck -->
             <div class="card" id="previewCard" style="display: none;">
                 <div class="card-title">
@@ -268,18 +274,18 @@
                     <h2>Historial de Propuestas Generadas</h2>
                 </div>
                 
-                <div class="table-responsive">
+                <div class="table-responsive" tabindex="0" role="region" aria-label="Historial de propuestas generadas">
                     <table>
                         <thead>
                             <tr>
-                                <th>Empresa</th>
-                                <th>Complejidad</th>
-                                <th>Edición</th>
-                                <th>Sector</th>
-                                <th>Inversión Facturable</th>
-                                <th>Semanas</th>
-                                <th>ROI</th>
-                                <th>Acción</th>
+                                <th scope="col">Empresa</th>
+                                <th scope="col">Complejidad</th>
+                                <th scope="col">Edición</th>
+                                <th scope="col">Sector</th>
+                                <th scope="col">Inversión Facturable</th>
+                                <th scope="col">Semanas</th>
+                                <th scope="col" data-roi-label>Retorno de Inversión (ROI)</th>
+                                <th scope="col">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="historyTableBody">
@@ -297,18 +303,19 @@
     </div>
 
     <!-- Modal Ajustes del Sistema -->
-    <div class="modal" id="settingsModal">
+    <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
         <div class="modal-content">
             <div class="modal-header">
-                <h3><i class="fa-solid fa-sliders"></i> Ajustes del Sistema (Tarifas Globales)</h3>
-                <button class="modal-close" id="closeSettingsModalBtn">&times;</button>
+                <h3 id="settingsTitle"><i class="fa-solid fa-sliders"></i> Ajustes del Sistema (Tarifas Globales)</h3>
+                <button class="modal-close" id="closeSettingsModalBtn" aria-label="Cerrar ajustes">&times;</button>
             </div>
+            <div class="advisory-box" id="settingsError" style="display: none;" role="alert"></div>
             <form id="settingsForm">
                 <div class="form-group">
                     <label for="sysConsultingRate">Tarifa Hora Consultor Base (USD)</label>
                     <div class="input-group">
                         <i class="fa-solid fa-clock"></i>
-                        <input type="number" id="sysConsultingRate" class="form-control" step="0.01" min="1" required>
+                        <input type="number" id="sysConsultingRate" class="form-control" step="0.01" min="10" max="1000" required>
                     </div>
                 </div>
                 <div class="form-group">
@@ -322,14 +329,14 @@
                     <label for="sysSaasMargin">Margen Recargo Licencias SaaS (como fracción, ej: 0.20)</label>
                     <div class="input-group">
                         <i class="fa-solid fa-percent"></i>
-                        <input type="number" id="sysSaasMargin" class="form-control" step="0.01" min="0" max="1" required>
+                        <input type="number" id="sysSaasMargin" class="form-control" step="0.01" min="0" max="2" required>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="sysRoiYears">Años ROI de Proyección (ej: 5)</label>
                     <div class="input-group">
                         <i class="fa-solid fa-calendar-days"></i>
-                        <input type="number" id="sysRoiYears" class="form-control" step="1" min="1" required>
+                        <input type="number" id="sysRoiYears" class="form-control" step="1" min="1" max="20" required>
                     </div>
                 </div>
                 <!-- Parámetros de localización peruana adicionales -->
@@ -337,14 +344,21 @@
                     <label for="sysIgvFactor">Factor IGV Local (ej: 0.18)</label>
                     <div class="input-group">
                         <i class="fa-solid fa-calculator"></i>
-                        <input type="number" id="sysIgvFactor" class="form-control" step="0.01" min="0" max="1" required>
+                        <input type="number" id="sysIgvFactor" class="form-control" step="0.01" min="0" max="0.5" required>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="sysExchangeRate">Tipo de Cambio USD a PEN (ej: 3.78)</label>
                     <div class="input-group">
                         <i class="fa-solid fa-money-bill-transfer"></i>
-                        <input type="number" id="sysExchangeRate" class="form-control" step="0.001" min="1" required>
+                        <input type="number" id="sysExchangeRate" class="form-control" step="0.001" min="1" max="10" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="sysSavingsFactor">Factor de Ahorro Anual sobre Facturación (ej: 0.015 = 1.5%)</label>
+                    <div class="input-group">
+                        <i class="fa-solid fa-piggy-bank"></i>
+                        <input type="number" id="sysSavingsFactor" class="form-control" step="0.001" min="0.001" max="0.5" required>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -381,13 +395,10 @@
         const configArrow = document.getElementById('configArrow');
         
         configToggle.addEventListener('click', () => {
-            if (configContent.style.display === 'block') {
-                configContent.style.display = 'none';
-                configArrow.className = 'fa-solid fa-chevron-down';
-            } else {
-                configContent.style.display = 'block';
-                configArrow.className = 'fa-solid fa-chevron-up';
-            }
+            const abierto = configContent.style.display === 'block';
+            configContent.style.display = abierto ? 'none' : 'block';
+            configArrow.className = abierto ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up';
+            configToggle.setAttribute('aria-expanded', String(!abierto));
         });
 
         // Modal de Ajustes
@@ -397,42 +408,102 @@
         const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
         const settingsForm = document.getElementById('settingsForm');
 
-        function loadSystemConfig() {
-            fetch('/api/config', { headers: authHeaders() })
-                .then(res => res.json())
-                .then(data => {
+        // anosRoi se usa para etiquetar el ROI con su horizonte real (es configurable).
+        let anosRoi = 5;
+
+        /**
+         * Carga la configuración comercial.
+         * syncProposalFields: solo en la carga inicial y tras guardar cambios.
+         * Al abrir el modal NO debe sincronizarse, porque sobreescribía en
+         * silencio la tarifa que el usuario había puesto para esa propuesta.
+         */
+        function loadSystemConfig(syncProposalFields = false) {
+            const aviso = document.getElementById('settingsError');
+            return fetch('/api/config', { headers: authHeaders() })
+                .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data })))
+                .then(({ ok, status, data }) => {
+                    if (!ok || data.error) {
+                        throw new Error(data.error || `El servidor respondió ${status}.`);
+                    }
+                    if (aviso) aviso.style.display = 'none';
+
+                    const set = (id, value) => {
+                        const el = document.getElementById(id);
+                        if (el && value !== undefined && value !== null) el.value = value;
+                    };
+
                     if (data.tarifa_hora_consultor) {
-                        document.getElementById('sysConsultingRate').value = data.tarifa_hora_consultor.valor;
-                        document.getElementById('consultingRate').value = data.tarifa_hora_consultor.valor;
+                        set('sysConsultingRate', data.tarifa_hora_consultor.valor);
+                        if (syncProposalFields) set('consultingRate', data.tarifa_hora_consultor.valor);
                     }
                     if (data.porcentaje_ams) {
-                        document.getElementById('sysSupportPercentage').value = data.porcentaje_ams.valor;
-                        document.getElementById('supportPercentage').value = Math.round(data.porcentaje_ams.valor * 100);
+                        set('sysSupportPercentage', data.porcentaje_ams.valor);
+                        // toFixed(1) en vez de Math.round: con 0.155 se mostraba 16
+                        // y la propuesta se generaba con 16% en lugar de 15,5%.
+                        if (syncProposalFields) {
+                            set('supportPercentage', (Number(data.porcentaje_ams.valor) * 100).toFixed(1));
+                        }
                     }
-                    if (data.margen_saas) {
-                        document.getElementById('sysSaasMargin').value = data.margen_saas.valor;
-                    }
+                    if (data.margen_saas) set('sysSaasMargin', data.margen_saas.valor);
                     if (data.anos_roi) {
-                        document.getElementById('sysRoiYears').value = data.anos_roi.valor;
+                        set('sysRoiYears', data.anos_roi.valor);
+                        anosRoi = Number(data.anos_roi.valor) || 5;
+                        actualizarEtiquetasRoi();
                     }
-                    if (data.factor_igv) {
-                        document.getElementById('sysIgvFactor').value = data.factor_igv.valor;
-                    }
-                    if (data.tipo_cambio_pen) {
-                        document.getElementById('sysExchangeRate').value = data.tipo_cambio_pen.valor;
-                    }
+                    if (data.factor_igv) set('sysIgvFactor', data.factor_igv.valor);
+                    if (data.tipo_cambio_pen) set('sysExchangeRate', data.tipo_cambio_pen.valor);
+                    if (data.factor_ahorro) set('sysSavingsFactor', data.factor_ahorro.valor);
                 })
-                .catch(err => console.error("Error al cargar configuración:", err));
+                .catch(err => {
+                clearTimeout(timeoutId);
+                if (err && err.name === 'AbortError') {
+                    clearInterval(interval);
+                    overlay.style.display = 'none';
+                    submitBtn.disabled = false;
+                    previewBtn.disabled = false;
+                    alert('La operación tardó más de 3 minutos y se canceló. Verifica que el archivo Excel del estimador no esté abierto y vuelve a intentarlo.');
+                    return;
+                }
+                    // Antes esto solo iba a la consola: el modal se abría con los
+                    // 6 campos vacíos y required, sin poder guardar ni saber por qué.
+                    console.error('[config]', err);
+                    if (aviso) {
+                        aviso.textContent = 'No se pudieron cargar los ajustes: ' + err.message;
+                        aviso.style.display = 'block';
+                    }
+                });
+        }
+
+        // El valor mostrado es roi_five_years, pero el horizonte es configurable:
+        // etiquetarlo evita que el comercial presente un ROI a 3 años como si
+        // fuera a 5 (o al revés) delante del cliente.
+        function actualizarEtiquetasRoi() {
+            document.querySelectorAll('[data-roi-label]').forEach(el => {
+                el.textContent = `Retorno de Inversión (ROI a ${anosRoi} años)`;
+            });
         }
 
         openSettingsBtn.addEventListener('click', () => {
-            loadSystemConfig();
+            loadSystemConfig(false);
             settingsModal.style.display = 'flex';
+            settingsModal.setAttribute('aria-hidden', 'false');
+            document.getElementById('sysConsultingRate')?.focus();
         });
 
-        const closeModal = () => { settingsModal.style.display = 'none'; };
+        const closeModal = () => {
+            settingsModal.style.display = 'none';
+            settingsModal.setAttribute('aria-hidden', 'true');
+            openSettingsBtn.focus();
+        };
         closeSettingsModalBtn.addEventListener('click', closeModal);
         cancelSettingsBtn.addEventListener('click', closeModal);
+        // Cerrar con Escape y con clic en el fondo (chatbot.html ya lo hacía).
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && settingsModal.style.display === 'flex') closeModal();
+        });
 
         settingsForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -442,7 +513,8 @@
                 margen_saas: document.getElementById('sysSaasMargin').value,
                 anos_roi: document.getElementById('sysRoiYears').value,
                 factor_igv: document.getElementById('sysIgvFactor').value,
-                tipo_cambio_pen: document.getElementById('sysExchangeRate').value
+                tipo_cambio_pen: document.getElementById('sysExchangeRate').value,
+                factor_ahorro: document.getElementById('sysSavingsFactor').value
             };
 
             fetch('/api/config', {
@@ -457,7 +529,7 @@
                 } else {
                     alert(data.message || "Configuración guardada correctamente.");
                     closeModal();
-                    loadSystemConfig();
+                    loadSystemConfig(true);
                 }
             })
             .catch(err => {
@@ -473,6 +545,9 @@
             fetch('/api/proposals', { headers: authHeaders() })
                 .then(res => res.json())
                 .then(data => {
+                    if (!Array.isArray(data)) {
+                        throw new Error(data && data.error ? data.error : 'Respuesta inesperada del servidor.');
+                    }
                     const tbody = document.getElementById('historyTableBody');
                     tbody.innerHTML = '';
                     proposalsCache = data;
@@ -490,12 +565,19 @@
                     
                     // Prepopulate dashboard with the most recent proposal
                     const latest = data[0];
-                    let displayInvestment = '$ ' + latest.total_investment.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    // Un total_investment nulo (fila antigua o generación interrumpida)
+                    // lanzaba TypeError y hacía perder TODO el historial mostrando un
+                    // "error de conexión" falso aunque el servidor hubiera respondido bien.
+                    const fmtMoneda = (v) => v == null
+                        ? '—'
+                        : '$ ' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const fmtNum = (v, sufijo) => v == null ? '—' : v + sufijo;
+                    let displayInvestment = fmtMoneda(latest.total_investment);
                     
                     // Cargar visualización bimoneda del dashboard de forma interactiva si existe en el preview JSON
-                    if (latest.preview_json && latest.preview_json.length > 0) {
-                        const econSlide = latest.preview_json.find(s => s.title.includes("Propuesta Económica"));
-                        if (econSlide && econSlide.bullets && econSlide.bullets.length > 2) {
+                    if (Array.isArray(latest.preview_json) && latest.preview_json.length > 0) {
+                        const econSlide = latest.preview_json.find(s => typeof s?.title === 'string' && s.title.includes("Propuesta Económica"));
+                        if (econSlide && Array.isArray(econSlide.bullets)) {
                             const facturableBullet = econSlide.bullets.find(b => b.includes("Facturable"));
                             if (facturableBullet) {
                                 const parts = facturableBullet.split("Facturable: ");
@@ -514,9 +596,9 @@
                     }
                     
                     document.getElementById('dashboardInvestment').innerHTML = displayInvestment;
-                    document.getElementById('dashboardWeeks').innerText = latest.total_weeks + ' Semanas';
-                    document.getElementById('dashboardRoi').innerText = latest.roi_five_years + ' %';
-                    document.getElementById('dashboardPayback').innerText = latest.payback_period + ' Años';
+                    document.getElementById('dashboardWeeks').innerText = fmtNum(latest.total_weeks, ' Semanas');
+                    document.getElementById('dashboardRoi').innerText = fmtNum(latest.roi_five_years, ' %');
+                    document.getElementById('dashboardPayback').innerText = fmtNum(latest.payback_period, ' Años');
                     
                     data.forEach(prop => {
                         const tr = document.createElement('tr');
@@ -526,8 +608,8 @@
                             : `<span class="badge badge-media">Media</span>`;
 
                         const editionBadge = prop.edition === 'Private'
-                            ? `<span class="badge badge-alta" title="RISE with SAP">Private</span>`
-                            : `<span class="badge badge-media" title="GROW with SAP">Public</span>`;
+                            ? `<span class="badge badge-private" title="RISE with SAP">Private</span>`
+                            : `<span class="badge badge-public" title="GROW with SAP">Public</span>`;
 
                         let tableInvStr = '$ ' + prop.total_investment.toLocaleString('en-US', {maximumFractionDigits: 0});
                         
@@ -549,7 +631,7 @@
                         const safeSector = escapeHtml(prop.sector || '-');
                         tr.innerHTML = `
                             <td>
-                                <a href="#" onclick="event.preventDefault(); viewHistoricalPreview(${prop.id})" style="color: white; text-decoration: underline; font-weight: bold;" title="Click para previsualizar">
+                                <a href="#" onclick="event.preventDefault(); viewHistoricalPreview(${prop.id})" style="color: white; text-decoration: underline; font-weight: bold;" title="Haz clic para previsualizar">
                                     ${safeName}
                                 </a>
                             </td>
@@ -608,9 +690,37 @@
 
         // Form Submit & Preview Actions
         const form = document.getElementById('proposalForm');
+
+        /**
+         * Muestra las advertencias del motor financiero (ROI negativo, payback
+         * fuera del horizonte). Son para el consultor: nunca van al PPTX del
+         * cliente, pero evitan enviar una propuesta imposible de defender.
+         */
+        function mostrarAdvertencias(avisos) {
+            const box = document.getElementById('advisoryBox');
+            const list = document.getElementById('advisoryList');
+            if (!box || !list) return;
+            list.innerHTML = '';
+            if (!Array.isArray(avisos) || avisos.length === 0) {
+                box.style.display = 'none';
+                return;
+            }
+            avisos.forEach(a => {
+                const li = document.createElement('li');
+                li.textContent = a;
+                list.appendChild(li);
+            });
+            box.style.display = 'block';
+        }
         const previewBtn = document.getElementById('previewBtn');
 
         const runPreviewOrGenerate = (isGenerate) => {
+            // "Previsualizar" es type="button", así que no disparaba la validación
+            // nativa: los min/max de los campos numéricos solo se comprobaban al
+            // generar. reportValidity() cubre ambos caminos y muestra los globos
+            // del navegador junto al campo, en vez de un error 400 del servidor.
+            if (!form.reportValidity()) return;
+
             const companyName = document.getElementById('companyName').value.trim();
             if (!companyName) {
                 alert("Por favor, ingrese el nombre de la empresa.");
@@ -707,13 +817,19 @@
             };
             
             const endpoint = isGenerate ? '/api/generate' : '/api/preview';
-            
+
+            // Sin timeout, si el scraping o la generación se colgaban el overlay
+            // bloqueaba la pantalla indefinidamente y la única salida era recargar.
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
+
             fetch(endpoint, {
                 method: 'POST',
                 headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: controller.signal
             })
-            .then(res => res.json())
+            .then(res => { clearTimeout(timeoutId); return res.json(); })
             .then(data => {
                 clearInterval(interval);
                 
@@ -736,15 +852,16 @@
                     if (data.error) {
                         alert("Error: " + data.error);
                     } else {
-                        // Renderizar previsualización estructurada
-                        renderPreviewDeck(data.slides_preview);
-                        
-                        if (isGenerate) {
-                            fetchHistory();
-                            form.reset();
-                            loadSystemConfig();
-                            document.getElementById('configContent').style.display = 'none';
-                            document.getElementById('configArrow').className = 'fa-solid fa-chevron-down';
+                        // El historial primero: si el render del preview fallaba,
+                        // la propuesta ya generada no aparecía en la tabla y
+                        // parecía que había fallado.
+                        if (isGenerate) fetchHistory();
+                        mostrarAdvertencias(data.advertencias);
+                        try {
+                            renderPreviewDeck(data.slides_preview);
+                        } catch (e) {
+                            console.error('[preview]', e);
+                            alert('La propuesta se generó correctamente, pero no se pudo mostrar la previsualización.');
                         }
                     }
                 }, 500);

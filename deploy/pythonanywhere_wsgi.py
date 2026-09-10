@@ -16,7 +16,12 @@ os.environ.setdefault("OUTPUT_DIR", f"{PROJECT}/generated_decks")
 # Reducir latencia del scraper: la lista blanca del plan gratuito bloquea DuckDuckGo
 os.environ.setdefault("SCRAPER_MAX_RETRIES", "1")
 
-# Cargar .env del proyecto (GEMINI_API_KEY, FLASK_SECRET_KEY, API_TOKEN opcional)
+# Cargar .env del proyecto. Variables relevantes:
+#   AI_PROVIDER      gemini (default) | groq
+#   GEMINI_API_KEY   requerida si AI_PROVIDER=gemini
+#   GROQ_API_KEY     requerida si AI_PROVIDER=groq
+#   GEMINI_MODEL / GROQ_MODEL  (opcionales, sobreescriben el modelo por defecto)
+#   FLASK_SECRET_KEY, API_TOKEN (opcional: si se define, la API exige Bearer token)
 from dotenv import load_dotenv
 load_dotenv(os.path.join(PROJECT, ".env"))
 

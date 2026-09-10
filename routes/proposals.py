@@ -96,7 +96,7 @@ def update_config():
                 cursor = conn.cursor()
                 valid_params = [
                     'tarifa_hora_consultor', 'porcentaje_ams', 'margen_saas',
-                    'anos_roi', 'factor_igv', 'tipo_cambio_pen'
+                    'anos_roi', 'factor_igv', 'tipo_cambio_pen', 'factor_ahorro'
                 ]
 
                 for key in valid_params:
@@ -178,6 +178,7 @@ def preview_proposal():
             'total_weeks': fin_results['summary']['total_weeks'],
             'roi': fin_results['summary']['roi_five_years'],
             'payback': fin_results['summary']['payback_period'],
+            'advertencias': fin_results['summary'].get('advertencias', []),
             'financial_data': fin_results,
             'slides_preview': slides_preview
         })
@@ -256,7 +257,8 @@ def generate_proposal():
 
         output_dir = current_app.config.get('OUTPUT_DIR', 'generated_decks')
         safe_name = re.sub(r'[\\/*?:"<>|]', '_', company_name)
-        filename = f"Propuesta_{safe_name.replace(' ', '_')}_{complexity}.pptx"
+        sello = datetime.now().strftime('%Y%m%d-%H%M%S')
+        filename = f"Propuesta_{safe_name.replace(' ', '_')}_{complexity}_{sello}.pptx"
         ppt_path = os.path.join(output_dir, filename)
 
         services.ppt_generator.generate_deck(
@@ -299,6 +301,7 @@ def generate_proposal():
             'total_weeks': summary['total_weeks'],
             'roi': summary['roi_five_years'],
             'payback': summary['payback_period'],
+            'advertencias': summary.get('advertencias', []),
             'slides_preview': slides_preview
         })
     except ValueError as e:

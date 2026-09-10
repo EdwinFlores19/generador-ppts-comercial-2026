@@ -63,7 +63,7 @@
         </div>
 
         <!-- Messages Area -->
-        <div class="messages-container" id="messagesContainer">
+        <div class="messages-container" id="messagesContainer" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversación con el asistente">
             <div class="empty-state" id="emptyState">
                 <i class="fa-solid fa-robot"></i>
                 <h2>¿En qué puedo ayudarte?</h2>
@@ -73,21 +73,21 @@
                     con el branding de SEIDOR Perú.
                 </p>
                 <div class="suggestions">
-                    <span class="suggestion-chip" onclick="sendSuggestion('Necesito una propuesta SAP S/4HANA para una empresa minera en Perú')">
+                    <button type="button" class="suggestion-chip" onclick="sendSuggestion('Necesito una propuesta SAP S/4HANA para una empresa minera en Perú')">
                         <i class="fa-solid fa-hard-hat"></i> Empresa Minera
-                    </span>
-                    <span class="suggestion-chip" onclick="sendSuggestion('Quiero generar una propuesta GROW with SAP para un retail con 5 tiendas')">
+                    </button>
+                    <button type="button" class="suggestion-chip" onclick="sendSuggestion('Quiero generar una propuesta GROW with SAP para un retail con 5 tiendas')">
                         <i class="fa-solid fa-store"></i> Retail
-                    </span>
-                    <span class="suggestion-chip" onclick="sendSuggestion('Ayúdame a preparar una propuesta SAP para una empresa de alimentos')">
+                    </button>
+                    <button type="button" class="suggestion-chip" onclick="sendSuggestion('Ayúdame a preparar una propuesta SAP para una empresa de alimentos')">
                         <i class="fa-solid fa-wheat-awn"></i> Alimentos
-                    </span>
-                    <span class="suggestion-chip" onclick="sendSuggestion('Necesito una propuesta de transformación digital con SAP S/4HANA Cloud')">
+                    </button>
+                    <button type="button" class="suggestion-chip" onclick="sendSuggestion('Necesito una propuesta de transformación digital con SAP S/4HANA Cloud')">
                         <i class="fa-solid fa-cloud"></i> Transformación Digital
-                    </span>
+                    </button>
                 </div>
             </div>
-            <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-indicator" id="typingIndicator" role="status" aria-label="El asistente está escribiendo">
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
@@ -98,7 +98,7 @@
         <div class="generate-bar" id="generateBar">
             <div class="gb-info">
                 <i class="fa-solid fa-circle-check"></i>
-                <span id="generateBarText">✅ Todos los datos han sido recopilados. Genera tu propuesta comercial.</span>
+                <span id="generateBarText">Todos los datos han sido recopilados. Genera tu propuesta comercial.</span>
             </div>
             <button class="btn-generate-ppt" id="generateBtn">
                 <i class="fa-solid fa-file-powerpoint"></i> GENERAR PROPUESTA COMERCIAL
@@ -108,7 +108,7 @@
         <!-- Input Area -->
         <div class="input-area">
             <div class="input-wrapper">
-                <textarea id="messageInput" rows="1" placeholder="Describe tu proyecto SAP o empresa objetivo..." maxlength="2000"></textarea>
+                <textarea id="messageInput" aria-label="Mensaje para el asistente de preventa" rows="1" placeholder="Describe tu proyecto SAP o empresa objetivo..." maxlength="4000"></textarea>
                 <button class="btn-send" id="sendBtn" title="Enviar mensaje">
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
@@ -150,12 +150,15 @@
     let currentSessionId = null;
     let messages = [];
     let sending = false;
+    let sessionsCache = [];
+    let toastTimer = null;
     let proposalReady = false;
-    let extractedData = null;
+    let extractedData = null;   // datos detectados por la IA (se muestran en el modal de resultado)
 
     // Strip structured data block from AI response before displaying
     function stripDataBlock(text) {
-        return text.replace(/##DATA_READY[\s\S]*?##DATA_END/g, '').trim();
+        if (!text) return '';
+        return String(text).replace(/##DATA_READY[\s\S]*?##DATA_END/g, '').trim();
     }
 
     // Token opcional de API (cuando el servidor define API_TOKEN).
@@ -168,10 +171,12 @@
 
     // Safe JSON fetch: returns parsed JSON or throws with user-friendly message
     async function fetchJson(url, options = {}) {
-        options.headers = Object.assign({}, authHeaders(), options.headers || {});
+        const opts = Object.assign({}, options, {
+            headers: Object.assign({}, authHeaders(), options.headers || {})
+        });
         let res;
         try {
-            res = await fetch(url, options);
+            res = await fetch(url, opts);
         } catch (netErr) {
             throw new Error('Error de red. Verifica tu conexión al servidor.');
         }
@@ -232,7 +237,7 @@
     // --- CREATE NEW SESSION ---
     function createNewSession() {
         if (currentSessionId && messages.length > 0) {
-            if (!confirm('¿Estás seguro? La conversación actual se guardará antes de crear una nueva.')) return;
+            if (!confirm('Se abrirá una conversación nueva. La actual queda guardada en el historial.')) return;
         }
         currentSessionId = null;
         messages = [];
@@ -251,23 +256,26 @@
         const text = messageInput.value.trim();
         if (!text || sending) return;
 
-        if (!currentSessionId) {
-            await createSessionOnServer(text);
-            if (!currentSessionId) return;
-        }
-
-        messageInput.value = '';
-        messageInput.style.height = 'auto';
-
-        messages.push({ role: 'user', content: text });
-        renderMessages();
-        scrollToBottom();
-
+        // El cerrojo se toma ANTES de cualquier await: si se activaba después
+        // de createSessionOnServer(), un segundo Enter durante ese viaje de red
+        // pasaba el guard y creaba dos conversaciones y dos llamadas a la IA.
         sending = true;
         sendBtn.disabled = true;
-        showTyping(true);
 
         try {
+            if (!currentSessionId) {
+                await createSessionOnServer(text);
+                if (!currentSessionId) return;
+            }
+
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            messages.push({ role: 'user', content: text, ts: Date.now() });
+            renderMessages();
+            scrollToBottom();
+            showTyping(true);
+
             const data = await fetchJson('/api/chat/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -282,10 +290,11 @@
                 showToast('Error: ' + data.error, 'error');
                 messages.pop();
                 renderMessages();
+                restoreDraft(text);
                 return;
             }
 
-            messages.push({ role: 'assistant', content: stripDataBlock(data.response) });
+            messages.push({ role: 'assistant', content: data.response, ts: Date.now() });
             renderMessages();
             scrollToBottom();
 
@@ -298,11 +307,26 @@
             loadSessions();
 
         } catch (err) {
-            showToast('Error de conexión con el servidor.', 'error');
+            showToast(err.message || 'Error de conexión con el servidor.', 'error');
+            if (messages.length && messages[messages.length - 1].role === 'user') {
+                messages.pop();
+                renderMessages();
+            }
+            restoreDraft(text);
         } finally {
             sending = false;
             sendBtn.disabled = false;
             showTyping(false);
+        }
+    }
+
+    // Devuelve el texto al textarea cuando el envío falla: antes se limpiaba
+    // antes del fetch y el usuario tenía que reescribir toda su descripción.
+    function restoreDraft(text) {
+        if (!messageInput.value) {
+            messageInput.value = text;
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
         }
     }
 
@@ -318,17 +342,21 @@
                 currentSessionId = data.session_id;
             }
         } catch (err) {
-            showToast('Error al crear sesión.', 'error');
+            showToast(err.message || 'No se pudo crear la conversación.', 'error');
         }
     }
 
     // --- GENERATE PPT FROM CHAT ---
+    const GENERATE_BTN_LABEL = '<i class="fa-solid fa-file-powerpoint"></i> GENERAR PROPUESTA COMERCIAL';
+
     generateBtn.addEventListener('click', async () => {
         if (!currentSessionId || !proposalReady) return;
 
         generateBtn.disabled = true;
         generateBtn.classList.add('loading');
-        generateBtn.innerHTML = '';
+        // Se conserva un texto visible: antes se vaciaba el botón y el usuario
+        // veía un rectángulo azul en blanco durante toda la generación.
+        generateBtn.innerHTML = 'Generando propuesta…';
 
         try {
             const data = await fetchJson('/api/chat/generate/' + currentSessionId, {
@@ -341,15 +369,19 @@
                 return;
             }
 
-            // Show success modal
             showResultModal(data);
 
+            // Evita regenerar la misma propuesta por clics repetidos, que creaba
+            // filas duplicadas en el historial apuntando al mismo archivo.
+            proposalReady = false;
+            generateBar.classList.remove('show');
+
         } catch (err) {
-            showToast('Error al generar la propuesta.', 'error');
+            showToast(err.message || 'Error al generar la propuesta.', 'error');
         } finally {
             generateBtn.disabled = false;
             generateBtn.classList.remove('loading');
-            generateBtn.innerHTML = '<i class="fa-solid fa-file-powerpoint"></i> GENERAR PROPUESTA COMERCIAL';
+            generateBtn.innerHTML = GENERATE_BTN_LABEL;
         }
     });
 
@@ -367,11 +399,9 @@
         // Remove existing messages (keep typing indicator)
         document.querySelectorAll('.message').forEach(el => el.remove());
 
-        messages.forEach((msg, idx) => {
+        messages.forEach((msg) => {
             const div = document.createElement('div');
             div.className = 'message ' + msg.role;
-
-            const isLast = idx === messages.length - 1;
 
             div.innerHTML = `
                 <div class="msg-avatar">
@@ -381,7 +411,7 @@
                     <div class="msg-content">
                         ${formatMessage(msg.content)}
                     </div>
-                    <div class="msg-time">${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div class="msg-time">${formatTimestamp(msg.ts)}</div>
                 </div>
             `;
 
@@ -389,9 +419,25 @@
         });
     }
 
+    // Antes se pintaba new Date() en cada burbuja, así que TODOS los mensajes
+    // (incluidos los de conversaciones antiguas) mostraban la hora actual y
+    // cambiaban cada vez que se escribía algo nuevo.
+    function formatTimestamp(ts) {
+        if (!ts) return '';
+        const opts = { hour: '2-digit', minute: '2-digit' };
+        const d = new Date(ts);
+        if (Number.isNaN(d.getTime())) return '';
+        const hoy = new Date();
+        if (d.toDateString() !== hoy.toDateString()) {
+            opts.day = '2-digit';
+            opts.month = 'short';
+        }
+        return d.toLocaleString('es-PE', opts);
+    }
+
     function escapeHtml(unsafe) {
         if (!unsafe) return '';
-        return unsafe
+        return String(unsafe)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
@@ -400,12 +446,17 @@
     }
 
     function formatMessage(text) {
-        // Convert markdown-like syntax (text already sanitized)
-        let safe = escapeHtml(text);
+        // El bloque ##DATA_READY se oculta SOLO al pintar: nunca se elimina del
+        // array 'messages', que es lo que se reenvía al servidor y se persiste.
+        // Al mutarlo se borraban los datos estructurados de la BD para siempre.
+        let safe = escapeHtml(stripDataBlock(text));
         let html = safe
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\n/g, '<br>')
-            .replace(/- (.*?)(<br>|$)/g, '• $1<br>');
+            // Ancla al inicio de línea: sin ella, un guion en medio de una frase
+            // ("la edición Public - GROW with SAP - incluye…") insertaba viñetas
+            // y saltos de línea espurios dentro del párrafo.
+            .replace(/(^|<br>)-\s+/g, '$1• ');
         return '<p>' + html.replace(/<br><br>/g, '</p><p>') + '</p>';
     }
 
@@ -437,38 +488,67 @@
                 return;
             }
 
+            sessionsCache = sessions;
             sessions.forEach(s => {
                 const item = document.createElement('div');
                 item.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
+                const titulo = s.title || 'Conversación';
+                item.setAttribute('role', 'button');
+                item.setAttribute('tabindex', '0');
+                item.title = titulo;
                 item.innerHTML = `
                     <div class="session-actions">
-                        <button class="session-del-btn" onclick="event.stopPropagation(); deleteSession(${s.id})" title="Eliminar">
+                        <button class="session-del-btn" data-del="${s.id}" title="Eliminar conversación" aria-label="Eliminar conversación ${escapeHtml(titulo)}">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </div>
-                    <div class="session-title">${escapeHtml(s.title || 'Conversación')}</div>
-                    <div class="session-date">${new Date(s.created_at).toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                    <div class="session-title">${escapeHtml(titulo)}</div>
+                    <div class="session-date">${formatSessionDate(s.created_at)}</div>
                 `;
+                item.querySelector('[data-del]').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteSession(s.id);
+                });
                 item.addEventListener('click', () => loadSession(s.id));
+                item.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        loadSession(s.id);
+                    }
+                });
                 sessionList.appendChild(item);
             });
         } catch (err) {
-            sessionList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #dc3545;">Error al cargar sesiones</div>';
+            sessionList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #dc3545;">'
+                + escapeHtml(err.message || 'Error al cargar sesiones') + '</div>';
         }
+    }
+
+    // El backend guarda las fechas en UTC con offset; se muestran en hora de Perú
+    // (antes, en Docker con el contenedor en UTC, se desfasaban 5 horas).
+    function formatSessionDate(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleString('es-PE', {
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
     }
 
     // --- LOAD SPECIFIC SESSION ---
     async function loadSession(sessionId) {
         try {
-            const sessions = await fetchJson('/api/chat/sessions');
+            // Reutiliza la lista ya descargada por loadSessions() en vez de
+            // volver a pedir el historial completo de todas las conversaciones.
+            const sessions = sessionsCache.length ? sessionsCache : await fetchJson('/api/chat/sessions');
             const session = sessions.find(s => s.id === sessionId);
             if (!session) return;
 
             currentSessionId = session.id;
-            messages = JSON.parse(session.messages || '[]').map(m => {
-                if (m.role === 'assistant') m.content = stripDataBlock(m.content);
-                return m;
-            });
+            // Se conserva el contenido crudo (con ##DATA_READY): el bloque se
+            // oculta al pintar, no al almacenar.
+            messages = JSON.parse(session.messages || '[]');
             chatTitle.innerText = session.title || 'Conversación';
             chatSubtitle.innerText = messages.length + ' mensajes';
 
@@ -484,14 +564,16 @@
                         extractedData = pd;
                         generateBar.classList.add('show');
                     }
-                } catch(e) {}
+                } catch (e) {
+                    console.warn('proposal_data corrupto en la sesión', sessionId, e);
+                }
             }
 
             renderMessages();
             scrollToBottom();
             loadSessions();
         } catch (err) {
-            showToast('Error al cargar la conversación.', 'error');
+            showToast(err.message || 'Error al cargar la conversación.', 'error');
         }
     }
 
@@ -512,9 +594,13 @@
                     chatSubtitle.innerText = 'Describe tu proyecto SAP y te ayudaré a generar una propuesta profesional';
                 }
                 loadSessions();
+            } else {
+                // El backend responde 404 {'error': 'Sesión no encontrada.'};
+                // antes no se mostraba nada y parecía que el borrado se ignoraba.
+                showToast(data.error || 'No se pudo eliminar la conversación.', 'error');
             }
         } catch (err) {
-            showToast('Error al eliminar.', 'error');
+            showToast(err.message || 'Error al eliminar.', 'error');
         }
     }
 
@@ -562,7 +648,8 @@
         const toast = document.getElementById('toast');
         toast.className = 'toast show' + (type ? ' ' + type : '');
         toast.innerHTML = '<i class="fa-solid fa-' + (type === 'error' ? 'circle-exclamation' : 'circle-check') + '" style="margin-right: 0.5rem;"></i> ' + escapeHtml(msg);
-        setTimeout(() => { toast.classList.remove('show'); }, 4000);
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 4000);
     }
 
     // --- FOUC Prevention ---
