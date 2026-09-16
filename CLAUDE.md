@@ -144,6 +144,27 @@ El frontend toma el token de `localStorage.seidor_api_token` vía `authHeaders()
 en `common.js`. Los scripts (`scripts/check_production.py`) lo leen de la
 variable de entorno `API_TOKEN`.
 
+**En HTML, `step` es un desplazamiento desde `min`, no un redondeo.**
+`min="1" step="1000"` hacía que el navegador solo aceptara 1, 1001, 2001…, así
+que **toda cifra redonda era inválida** —incluido el valor por defecto del
+campo— y el formulario no se podía enviar: la función principal de la
+aplicación estaba rota desde la interfaz sin que ningún test de API lo notara.
+Para importes usar `step="any"`. `tests/test_interfaz.py` comprueba que el
+valor por defecto sea válido según sus propios atributos.
+
+**La previsualización web y el PPTX tienen que contar lo mismo.**
+`services/preview.py` y `services/ppt_generator.py` construyen el mismo deck por
+caminos distintos y ya se desincronizaron: el preview llevaba "GROW with SAP"
+fijo en el cierre, así que en una propuesta Private el consultor revisaba GROW y
+el cliente recibía RISE. Ambos deben salir de `EDITION_LABELS`.
+
+**El estado del chatbot no se deduce del texto de los mensajes.** El frontend
+detectaba "falta la API key" buscando un trozo del mensaje de error; al
+reescribir ese texto la detección dejó de casar en silencio. El servidor manda
+`ia_disponible` (en la respuesta y en el primer render vía Jinja) y el
+indicador sale de `fijarEstadoConectado()`, único sitio que puede poner
+"Conectado".
+
 ## Convenciones
 
 - Código, comentarios, commits y textos de UI **en español**.
@@ -163,6 +184,11 @@ variable de entorno `API_TOKEN`.
   scraper cae al fallback sectorial. Para clasificar bien, usar el chatbot.
 - **El Excel del estimador se lee con copia en caliente** si Windows lo tiene
   bloqueado por estar abierto.
+- **Probar siempre a 375 px antes de dar por buena una pantalla.** Dos fallos
+  solo visibles ahí: el nav sin `flex-wrap` hacía scrollear la página entera en
+  horizontal, y la barra de conversaciones quedaba aplastada a 1 px porque en
+  un flex en columna `max-height` limita por arriba pero no pone suelo (hace
+  falta `flex: 0 0 auto`).
 - **Un `python app.py` anterior puede seguir ocupando el puerto 5000** aunque su
   terminal ya no exista: el servidor nuevo arranca, no puede enlazar y sigues
   viendo el código viejo. En Windows:

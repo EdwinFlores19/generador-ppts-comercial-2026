@@ -262,12 +262,12 @@
                 return;
             }
 
-            // El backend responde 200 con este aviso cuando falta la API key.
-            if (typeof data.response === 'string' && data.response.includes('motor de IA no está disponible')) {
-                fijarEstado('warn', 'IA no disponible');
-            } else {
-                fijarEstado('ok', 'Conectado');
+            // El backend manda una señal explícita (ia_disponible). Si un
+            // despliegue antiguo no la enviara, se asume que sí hay IA.
+            if (typeof data.ia_disponible === 'boolean') {
+                iaDisponible = data.ia_disponible;
             }
+            fijarEstadoConectado();
 
             messages.push({ role: 'assistant', content: data.response, ts: Date.now() });
             renderMessages();
@@ -480,7 +480,7 @@
                 return;
             }
 
-            fijarEstado('ok', 'Conectado');
+            fijarEstadoConectado();
             sessions.forEach(s => {
                 const item = document.createElement('div');
                 item.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
@@ -626,6 +626,25 @@
      * mostraba "Conectado" de forma estática: mentía si el servidor estaba
      * caído, si faltaba el token o si el motor de IA no tenía API key.
      */
+    // Disponibilidad real del motor de IA, según el servidor. Antes esto se
+    // deducía buscando un trozo del texto del mensaje de error ("motor de IA no
+    // está disponible"); al reescribir ese texto, la detección dejó de casar en
+    // silencio y el indicador decía "Conectado" sin motor de IA.
+    let iaDisponible = {{ 'true' if ia_disponible else 'false' }};
+
+    /**
+     * Estado del indicador cuando el servidor responde bien: "Conectado" solo
+     * si además hay motor de IA. loadSessions() ponía 'ok' incondicionalmente y
+     * pisaba el aviso que acababa de mostrar el envío del mensaje.
+     */
+    function fijarEstadoConectado() {
+        if (iaDisponible) {
+            fijarEstado('ok', 'Conectado');
+        } else {
+            fijarEstado('warn', 'Sin IA configurada');
+        }
+    }
+
     function fijarEstado(estado, texto) {
         const cont = document.getElementById('chatStatus');
         const txt = document.getElementById('chatStatusText');

@@ -146,7 +146,11 @@ def chat_send_message():
                            f'Mientras tanto, la generación de propuestas desde el '
                            f'formulario funciona con normalidad y sin ninguna clave.',
                 'proposal_ready': False,
-                'extracted_data': None
+                'extracted_data': None,
+                # Señal explícita: el frontend detectaba este caso comparando el
+                # texto del mensaje, así que al reescribirlo dejó de enterarse y
+                # el indicador seguía diciendo "Conectado" sin motor de IA.
+                'ia_disponible': False
             })
 
         ai_response = ai_engine.send_message(history, user_message)
@@ -194,6 +198,7 @@ def chat_send_message():
             _save_proposal_data(session_id, extracted_data, title)
 
         return jsonify({
+            'ia_disponible': True,
             'response': ai_response,
             'proposal_ready': proposal_ready,
             'extracted_data': extracted_data

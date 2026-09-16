@@ -120,7 +120,12 @@
                         <label for="annualRevenue">Facturación Anual Proyectada (USD)</label>
                         <div class="input-group">
                             <i class="fa-solid fa-coins"></i>
-                            <input type="number" id="annualRevenue" class="form-control" value="15000000" min="1" step="1000" required autocomplete="off">
+                            <!-- step="any": en HTML el step es un DESPLAZAMIENTO desde min, no un
+                                 redondeo. Con min="1" step="1000" los unicos valores validos
+                                 eran 1, 1001, 2001... asi que el navegador rechazaba toda cifra
+                                 redonda (incluido el propio valor por defecto) y el formulario
+                                 no se podia enviar. El max coincide con MAX_REVENUE del backend. -->
+                            <input type="number" id="annualRevenue" class="form-control" value="15000000" min="1" max="1000000000000000" step="any" required autocomplete="off">
                         </div>
                     </div>
                     

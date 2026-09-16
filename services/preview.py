@@ -64,7 +64,10 @@ def generate_preview_data(company_name, sector, description, complexity, financi
         },
         {
             "num": 4,
-            "title": "La Solución Estratégica: SAP S/4HANA Cloud",
+            # El deck real imprime la edición aquí (ppt_generator: ed['nombre']).
+            # La previsualización decía solo "SAP S/4HANA Cloud", así que el
+            # consultor revisaba una lámina distinta de la que recibe el cliente.
+            "title": f"La Solución Estratégica: {ed['nombre']}",
             "subtitle": "Acelerando la eficiencia operativa en la nube",
             "bullets": [
                 "Estandarización bajo la metodología de mejores prácticas preconfiguradas.",
@@ -153,7 +156,9 @@ def generate_preview_data(company_name, sector, description, complexity, financi
         {
             "num": current_num + 4,
             "title": "Cierre y Agradecimientos",
-            "subtitle": "GROW with SAP: El futuro de la gestión en la nube",
+            # Estaba fijo en "GROW with SAP": en una propuesta Private el
+            # consultor veía GROW en la previsualización y RISE en el PPTX.
+            "subtitle": f"{ed['programa']}: El futuro de la gestión en la nube",
             "bullets": [
                 "Estandarización y trazabilidad 100% digital impulsado por SEIDOR Perú.",
                 "Contacto y consultas comerciales: preventape@seidor.com."

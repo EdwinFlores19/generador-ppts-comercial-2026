@@ -833,6 +833,11 @@ nav {
         max-height: 200px;
         border-right: none;
         border-bottom: 1px solid var(--color-border);
+        /* En columna, el flex-shrink por defecto aplastaba la barra a 1 px
+           contra el chat: max-height limita por arriba, pero no pone suelo.
+           Resultado: en móvil no había forma de ver ni cambiar de
+           conversación. flex:0 0 auto la deja a su altura natural. */
+        flex: 0 0 auto;
     }
 
     .sidebar-header {

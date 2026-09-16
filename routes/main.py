@@ -16,4 +16,10 @@ def chatbot_page():
         ai_label = f"Groq · {os.environ.get('GROQ_MODEL', 'llama-3.3-70b-versatile')}"
     else:
         ai_label = f"Gemini · {os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')}"
-    return render_template('chatbot.html', ai_label=ai_label)
+    # Se consulta el motor ya inicializado en routes.chat: si no hay API key,
+    # el indicador debe decirlo desde el primer render y no tras el primer
+    # mensaje fallido.
+    from routes.chat import ai_engine
+    return render_template('chatbot.html',
+                           ai_label=ai_label,
+                           ia_disponible=ai_engine is not None)
