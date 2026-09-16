@@ -152,6 +152,39 @@
                         </div>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="deckTheme">Tema visual del deck</label>
+                        <div class="input-group">
+                            <i class="fa-solid fa-palette"></i>
+                            <select id="deckTheme" class="form-control">
+                                <option value="seidor">SEIDOR Corporativo</option>
+                            </select>
+                        </div>
+                        <p class="field-hint" id="themeHint"></p>
+                        <div class="theme-swatches" id="themeSwatches" aria-hidden="true"></div>
+                        <button type="button" class="link-inline" id="toggleCustomTheme"
+                                aria-expanded="false" aria-controls="customThemePanel">
+                            Personalizar colores y tipografía
+                        </button>
+                    </div>
+
+                    <div class="custom-theme" id="customThemePanel" hidden>
+                        <p class="custom-theme__intro">
+                            Ajusta solo lo que necesites; el resto se hereda del tema elegido.
+                            Si una combinación queda ilegible, el sistema la rechaza antes de generar.
+                        </p>
+                        <div class="custom-theme__grid" id="customColorGrid"></div>
+                        <div class="custom-theme__fonts">
+                            <label for="customFontHeading">Tipografía de títulos</label>
+                            <select id="customFontHeading" class="form-control form-control--no-icon"></select>
+                            <label for="customFontBody">Tipografía del cuerpo</label>
+                            <select id="customFontBody" class="form-control form-control--no-icon"></select>
+                        </div>
+                        <button type="button" class="btn-reset-theme" id="resetCustomTheme">
+                            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Volver al tema original
+                        </button>
+                    </div>
+
                     <!-- Advanced Pricing Config Accordion -->
                     <button type="button" class="accordion-header" id="configToggle" aria-expanded="false" aria-controls="configContent">
                         <span>Configuración de Tarifas y Licencias</span>
@@ -539,6 +572,181 @@
                 showToast('No se pudieron guardar los ajustes: ' + (err.message || 'error desconocido'), 'error');
             });
         });
+
+        /* ------------------------------------------------------------------
+         * Tema visual del deck
+         *
+         * El catálogo lo sirve /api/themes, así que añadir un tema en
+         * services/themes.py lo hace aparecer aquí sin tocar el frontend. Lo
+         * mismo con las fuentes admitidas y las claves de color: el formulario
+         * de personalización se construye a partir de la respuesta para que no
+         * pueda desincronizarse del backend.
+         * ------------------------------------------------------------------ */
+        let catalogoTemas = [];
+        let fuentesAdmitidas = [];
+        let clavesColor = [];
+        let coloresPersonalizados = {};   // solo lo que el consultor ha tocado
+
+        const ETIQUETAS_COLOR = {
+            primary: 'Cabeceras',
+            royal: 'Acento intermedio',
+            secondary: 'Acento y gráficos',
+            background: 'Fondo de tarjetas',
+            white: 'Texto sobre cabecera',
+            text: 'Texto del cuerpo',
+            gray: 'Texto secundario',
+            card_line: 'Contorno de tarjetas'
+        };
+
+        function temaSeleccionado() {
+            const sel = document.getElementById('deckTheme');
+            return catalogoTemas.find(t => t.id === sel.value) || catalogoTemas[0];
+        }
+
+        /** Payload de tema para la API: un id a secas, o el objeto a medida. */
+        function temaParaEnviar() {
+            const base = document.getElementById('deckTheme').value;
+            const fuenteTitulos = document.getElementById('customFontHeading').value;
+            const fuenteCuerpo = document.getElementById('customFontBody').value;
+            const t = temaSeleccionado();
+            const hayColores = Object.keys(coloresPersonalizados).length > 0;
+            const hayFuentes = t && (fuenteTitulos !== t.fuente_titulos || fuenteCuerpo !== t.fuente_cuerpo);
+            if (!hayColores && !hayFuentes) return base;
+            return {
+                base: base,
+                colores: Object.assign({}, coloresPersonalizados),
+                fuente_titulos: fuenteTitulos,
+                fuente_cuerpo: fuenteCuerpo
+            };
+        }
+
+        /** Colores efectivos = los del tema base con lo personalizado encima. */
+        function coloresEfectivos() {
+            const t = temaSeleccionado();
+            return Object.assign({}, t ? t.colores : {}, coloresPersonalizados);
+        }
+
+        function pintarMuestras() {
+            const cont = document.getElementById('themeSwatches');
+            const colores = coloresEfectivos();
+            cont.innerHTML = '';
+            ['primary', 'royal', 'secondary', 'background', 'text'].forEach(clave => {
+                const punto = document.createElement('span');
+                punto.className = 'theme-swatch';
+                punto.style.background = colores[clave] || '#000';
+                punto.title = `${ETIQUETAS_COLOR[clave] || clave}: ${colores[clave]}`;
+                cont.appendChild(punto);
+            });
+        }
+
+        function construirFormularioColores() {
+            const grid = document.getElementById('customColorGrid');
+            const colores = coloresEfectivos();
+            grid.innerHTML = '';
+            clavesColor.forEach(clave => {
+                const fila = document.createElement('div');
+                fila.className = 'custom-theme__row';
+                const id = 'color_' + clave;
+                fila.innerHTML = `
+                    <label for="${id}">${escapeHtml(ETIQUETAS_COLOR[clave] || clave)}</label>
+                    <input type="color" id="${id}" value="${escapeHtml(colores[clave] || '#000000')}"
+                           aria-label="${escapeHtml(ETIQUETAS_COLOR[clave] || clave)}">
+                `;
+                const input = fila.querySelector('input');
+                input.addEventListener('input', () => {
+                    coloresPersonalizados[clave] = input.value.toUpperCase();
+                    pintarMuestras();
+                    aplicarTemaAlPreview();
+                });
+                grid.appendChild(fila);
+            });
+        }
+
+        function rellenarSelectFuentes() {
+            const t = temaSeleccionado();
+            [['customFontHeading', 'fuente_titulos'], ['customFontBody', 'fuente_cuerpo']].forEach(([id, clave]) => {
+                const sel = document.getElementById(id);
+                sel.innerHTML = '';
+                fuentesAdmitidas.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f;
+                    opt.textContent = f;
+                    if (t && f === t[clave]) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            });
+        }
+
+        /**
+         * Tiñe la previsualización con los colores elegidos, para que el
+         * consultor vea el tema antes de invertir ~20 s en generar el PPTX.
+         */
+        function aplicarTemaAlPreview() {
+            const colores = coloresEfectivos();
+            const card = document.getElementById('previewCard');
+            if (!card) return;
+            card.style.setProperty('--tema-primary', colores.primary);
+            card.style.setProperty('--tema-secondary', colores.secondary);
+            card.style.setProperty('--tema-background', colores.background);
+            card.style.setProperty('--tema-text', colores.text);
+            const t = temaSeleccionado();
+            const fuente = document.getElementById('customFontBody').value || (t && t.fuente_cuerpo) || 'Arial';
+            card.style.setProperty('--tema-fuente', fuente);
+        }
+
+        function alCambiarTema() {
+            coloresPersonalizados = {};          // el tema nuevo manda
+            const t = temaSeleccionado();
+            document.getElementById('themeHint').textContent = t ? t.descripcion : '';
+            rellenarSelectFuentes();
+            construirFormularioColores();
+            pintarMuestras();
+            aplicarTemaAlPreview();
+        }
+
+        async function cargarCatalogoTemas() {
+            try {
+                const d = await fetchJson('/api/themes');
+                catalogoTemas = d.temas || [];
+                fuentesAdmitidas = d.fuentes || [];
+                clavesColor = d.claves_color || [];
+                const sel = document.getElementById('deckTheme');
+                sel.innerHTML = '';
+                catalogoTemas.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.nombre;
+                    if (t.id === (d.por_defecto || 'seidor')) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                alCambiarTema();
+            } catch (err) {
+                // Sin catálogo el formulario sigue siendo usable: se genera con
+                // el tema por defecto del servidor.
+                console.error('No se pudo cargar el catálogo de temas:', err);
+                document.getElementById('themeHint').textContent =
+                    'No se pudo cargar el catálogo de temas; se usará el corporativo.';
+            }
+        }
+
+        document.getElementById('deckTheme').addEventListener('change', alCambiarTema);
+
+        document.getElementById('toggleCustomTheme').addEventListener('click', (e) => {
+            const panel = document.getElementById('customThemePanel');
+            const abierto = !panel.hidden;
+            panel.hidden = abierto;
+            e.currentTarget.setAttribute('aria-expanded', String(!abierto));
+            e.currentTarget.textContent = abierto
+                ? 'Personalizar colores y tipografía'
+                : 'Ocultar personalización';
+        });
+
+        document.getElementById('resetCustomTheme').addEventListener('click', () => {
+            alCambiarTema();
+            showToast('Tema restablecido a ' + (temaSeleccionado()?.nombre || 'el original') + '.');
+        });
+
+        cargarCatalogoTemas();
 
         let proposalsCache = []; // Acumulado de propuestas ya cargadas
         let historialOffset = 0;
@@ -954,6 +1162,7 @@
                 annual_revenue: document.getElementById('annualRevenue').value,
                 complexity_mode: document.getElementById('complexityMode').value,
                 edition: document.getElementById('sapEdition').value,
+                theme: temaParaEnviar(),
                 consulting_rate: document.getElementById('consultingRate').value,
                 support_percentage: document.getElementById('supportPercentage').value,
                 modular_licenses: {

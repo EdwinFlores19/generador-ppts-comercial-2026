@@ -28,6 +28,8 @@ La BBDD y las tablas se crean solas al arrancar (`models/database.py:init_db`).
 | `services/ai_chat.py` | Motor de IA dual: Gemini o Groq según `AI_PROVIDER` |
 | `services/scraper.py` | Perfilado del prospecto (con fallback sectorial) |
 | `services/preview.py` | Estructura de láminas para la previsualización web |
+| `services/themes.py` | Catálogo de temas visuales y validación de contraste |
+| `services/ai_models.py` | Catálogo de variantes de modelo por proveedor |
 | `utils/paging.py` | `parse_paging` / `paging_headers` — paginación de los listados |
 | `static/common.js` | `escapeHtml`, `authHeaders`, `fetchJson`, `showToast`, `descargarArchivo` — **compartido** |
 | `deploy/RUNBOOK.md` | Operación en producción. **Leer antes de tocar el despliegue.** |
@@ -164,6 +166,44 @@ reescribir ese texto la detección dejó de casar en silencio. El servidor manda
 `ia_disponible` (en la respuesta y en el primer render vía Jinja) y el
 indicador sale de `fijarEstadoConectado()`, único sitio que puede poner
 "Conectado".
+
+**El tema visual se aplica intercambiando los globales de `ppt_generator`.**
+Los colores y fuentes se leen como globales desde ~20 funciones (unas 100
+referencias); pasarlos como parámetro obligaría a tocar todas esas firmas. En su
+lugar `generate_deck` los intercambia, construye y restaura en un `finally`.
+Dos consecuencias que hay que respetar:
+
+- **Va bajo un cerrojo** (`_CERROJO_TEMA`). Con `--threads 4`, dos generaciones
+  simultáneas con temas distintos se pisarían y saldría un deck con colores
+  mezclados. Serializar cuesta espera; un PPTX mal coloreado delante de un
+  cliente cuesta más.
+- **Ningún argumento por defecto puede referenciar un color o fuente.** Python
+  los evalúa al definir la función, así que `def _style_card(..., line_color=COLOR_CARD_LINE)`
+  congelaba el azul de SEIDOR y se colaba en todos los demás temas. Para eso
+  está el centinela `_DEL_TEMA`, que además convive con el `None` de
+  `_style_card` (que significa "sin borde").
+
+**Un tema sin contraste se rechaza, uno flojo solo avisa.** `services/themes.py`
+calcula el ratio WCAG de los pares que el deck pinta de verdad. Por debajo de
+4.5:1 en texto/fondo, blanco/cabecera o blanco/acento se devuelve 400: el deck
+saldría con texto invisible, que es un fallo que este proyecto ya sufrió. El
+gris corporativo (#919191 sobre #F6F6F6) se queda en 2.9:1, así que ese umbral
+es **advertencia y no error**: un límite duro rechazaría la propia paleta de
+SEIDOR y, peor, rechazaría un tema a medida por un color que el consultor ni
+tocó.
+
+**`normalizar_tema` es idempotente.** La ruta valida el tema y luego se lo pasa
+al generador, que lo vuelve a normalizar. "Personalizado" se decide comparando
+el resultado con el tema base, no por si el llamante mandó claves; si no, un
+tema del catálogo sin tocar acababa etiquetado como personalizado.
+
+**La variante de IA se resuelve por llamada, no en el constructor.** El cliente
+del proveedor se crea una vez al arrancar con su clave, pero el modelo es solo
+un parámetro de cada petición: así el consultor cambia de variante sin reiniciar
+ni tocar el `.env`. `services/ai_models.py` valida contra el catálogo del
+proveedor activo — y admite además el modelo que haya en la variable de entorno,
+para no romper un despliegue que ya funcionaba. **El proveedor (Gemini o Groq)
+no se puede cambiar en caliente**, solo la variante dentro de él.
 
 ## Convenciones
 

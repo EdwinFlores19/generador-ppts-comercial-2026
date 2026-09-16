@@ -969,3 +969,36 @@ nav {
     color: #FF8A8A;
     font-size: 0.85rem;
 }
+
+/* --- Selector de variante del modelo --- */
+.modelo-select {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-bright, #fff);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    margin-left: 0.6rem;
+    max-width: 200px;
+    cursor: pointer;
+}
+
+.modelo-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* En el desplegable nativo las opciones las pinta el sistema: sin esto, en
+   Windows salen texto blanco sobre fondo blanco. */
+.modelo-select option {
+    background: #10233f;
+    color: #fff;
+}
+
+@media (max-width: 640px) {
+    .modelo-select {
+        margin-left: 0;
+        margin-top: 0.4rem;
+        max-width: 100%;
+    }
+}

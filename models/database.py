@@ -96,6 +96,13 @@ def init_db():
             proposal_cols = {row[1] for row in cursor.fetchall()}
             if 'edition' not in proposal_cols:
                 cursor.execute("ALTER TABLE proposals ADD COLUMN edition TEXT DEFAULT 'Public'")
+            # Tema visual con el que se generó el deck. Se guarda el id para
+            # mostrarlo en el historial y el JSON completo para poder
+            # regenerar exactamente la misma propuesta más adelante.
+            if 'theme_id' not in proposal_cols:
+                cursor.execute("ALTER TABLE proposals ADD COLUMN theme_id TEXT DEFAULT 'seidor'")
+            if 'theme_json' not in proposal_cols:
+                cursor.execute("ALTER TABLE proposals ADD COLUMN theme_json TEXT")
 
             default_params = [
                 ('tarifa_hora_consultor', 60.0, 'Tarifa por hora del consultor SAP en USD'),

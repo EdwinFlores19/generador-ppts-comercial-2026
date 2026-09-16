@@ -120,6 +120,9 @@
             <div class="input-hint">
                 <span><i class="fa-regular fa-keyboard"></i> Presiona Enter para enviar, Shift+Enter para nueva línea</span>
                 <span>Asistente IA · {{ ai_label }}</span>
+                <label class="sr-only" for="modeloIA">Variante del modelo de IA</label>
+                <select id="modeloIA" class="modelo-select" title="Variante del modelo de IA">
+                </select>
             </div>
         </div>
 
@@ -249,6 +252,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     session_id: currentSessionId,
+                    modelo: modeloElegido,
                     message: text,
                     history: messages.slice(0, -1)
                 })
@@ -626,6 +630,73 @@
      * mostraba "Conectado" de forma estática: mentía si el servidor estaba
      * caído, si faltaba el token o si el motor de IA no tenía API key.
      */
+    /* ----------------------------------------------------------------------
+     * Variante del modelo
+     *
+     * El modelo estaba fijado en el .env del servidor: cambiarlo obligaba a
+     * editar un fichero y reiniciar el proceso. Ahora se elige por conversación
+     * y viaja en cada mensaje, porque para el proveedor el modelo es solo un
+     * parámetro de la llamada. El proveedor en sí (Gemini o Groq) NO se puede
+     * cambiar desde aquí: su cliente se crea al arrancar con su clave.
+     * -------------------------------------------------------------------- */
+    let modeloElegido = null;
+
+    function recordarModelo(id) {
+        try {
+            localStorage.setItem('seidor_modelo_ia', id);
+        } catch (e) {
+            // Modo privado o cookies bloqueadas: se pierde la preferencia, nada más.
+        }
+    }
+
+    function modeloRecordado() {
+        try {
+            return localStorage.getItem('seidor_modelo_ia');
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function cargarModelos() {
+        const sel = document.getElementById('modeloIA');
+        if (!sel) return;
+        try {
+            const d = await fetchJson('/api/ai/models');
+            const modelos = d.modelos || [];
+            if (!modelos.length) {
+                sel.hidden = true;
+                return;
+            }
+            const guardado = modeloRecordado();
+            const valido = modelos.some(m => m.id === guardado);
+            modeloElegido = valido ? guardado : (d.por_defecto || modelos[0].id);
+
+            sel.innerHTML = '';
+            modelos.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.nombre;
+                opt.title = m.descripcion;
+                if (m.id === modeloElegido) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            sel.hidden = false;
+            // Sin motor de IA el selector no sirve de nada: se muestra
+            // desactivado en vez de ocultarlo, para que se vea que existe.
+            sel.disabled = !d.disponible;
+        } catch (err) {
+            console.error('No se pudo cargar el catálogo de modelos:', err);
+            sel.hidden = true;
+        }
+    }
+
+    document.getElementById('modeloIA')?.addEventListener('change', (e) => {
+        modeloElegido = e.target.value;
+        recordarModelo(modeloElegido);
+        const opt = e.target.selectedOptions[0];
+        showToast('Variante cambiada a ' + (opt ? opt.textContent : modeloElegido) + '.');
+    });
+
     // Disponibilidad real del motor de IA, según el servidor. Antes esto se
     // deducía buscando un trozo del texto del mensaje de error ("motor de IA no
     // está disponible"); al reescribir ese texto, la detección dejó de casar en
@@ -721,6 +792,9 @@
     // --- INIT ---
     function iniciarChat() {
         loadSessions();
+        // El catálogo de variantes se pide una vez al abrir la página: no
+        // cambia entre conversaciones.
+        cargarModelos();
         messageInput.focus();
     }
 

@@ -17,6 +17,8 @@ import asyncio
 import math
 import logging
 
+from services.ai_models import modelo_por_defecto, normalizar_modelo
+
 log = logging.getLogger("ai_chat")
 
 AI_TIMEOUT = 25
@@ -185,6 +187,19 @@ def validate_proposal_data(data):
     return True, None
 
 
+def _resolver_modelo(engine, modelo):
+    """Variante a usar en esta llamada concreta.
+
+    Se resuelve por llamada y no en el constructor a propósito: el cliente del
+    proveedor se crea una vez al arrancar, pero el modelo es solo un parámetro
+    de cada petición. Así el consultor cambia de variante sin reiniciar el
+    proceso ni tocar el .env del servidor.
+    """
+    if modelo is None or str(modelo).strip() == '':
+        return engine.model
+    return normalizar_modelo(engine.provider, modelo)
+
+
 class AIChatEngine:
     """Motor de chat con IA para preventa SAP SEIDOR. Soporta Gemini y Groq."""
 
@@ -218,7 +233,7 @@ class AIChatEngine:
                 )
             log.info("[Gemini Client] Inicializando cliente en modo Google AI Studio (API Key)")
             self.client = genai.Client(api_key=self.api_key)
-        self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self.model = modelo_por_defecto("gemini")
 
     def _init_groq(self, api_key):
         from groq import Groq
@@ -232,7 +247,7 @@ class AIChatEngine:
             )
         log.info("[Groq Client] Inicializando cliente Groq (API compatible con OpenAI)")
         self.client = Groq(api_key=self.api_key)
-        self.model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.model = modelo_por_defecto("groq")
 
     def _format_history(self, history):
         """Convierte el historial interno {'role','content'} al formato del proveedor activo."""
@@ -263,22 +278,27 @@ class AIChatEngine:
             log.error("[%s] Timeout tras %ss", self.provider, AI_TIMEOUT)
             raise TimeoutError(f"{self.provider} no respondió en {AI_TIMEOUT} segundos")
 
-    def send_message(self, history, user_message):
-        """Envía un mensaje y retorna la respuesta del asistente."""
+    def send_message(self, history, user_message, modelo=None):
+        """Envía un mensaje y retorna la respuesta del asistente.
+
+        `modelo` permite elegir la variante en esta llamada; sin él se usa la
+        del proveedor por defecto.
+        """
+        modelo_efectivo = _resolver_modelo(self, modelo)
         if self.provider == "groq":
             messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
             messages.extend(self._format_history(history))
             messages.append({"role": "user", "content": user_message})
             response = self._run_with_timeout(
                 lambda: self.client.chat.completions.create(
-                    model=self.model, messages=messages,
+                    model=modelo_efectivo, messages=messages,
                     temperature=0.7, top_p=0.95, max_tokens=4096,
                 )
             )
             return response.choices[0].message.content
 
         chat = self.client.chats.create(
-            model=self.model,
+            model=modelo_efectivo,
             history=self._format_history(history),
             config={
                 "system_instruction": SYSTEM_INSTRUCTION,
@@ -291,8 +311,9 @@ class AIChatEngine:
         response = self._run_with_timeout(chat.send_message, user_message)
         return response.text
 
-    def extract_proposal_data(self, history):
+    def extract_proposal_data(self, history, modelo=None):
         """Extrae datos estructurados de toda la conversación."""
+        modelo_efectivo = _resolver_modelo(self, modelo)
         try:
             if self.provider == "groq":
                 messages = [{"role": "system", "content": SYSTEM_INSTRUCTION}]
@@ -300,14 +321,14 @@ class AIChatEngine:
                 messages.append({"role": "user", "content": EXTRACTION_PROMPT})
                 response = self._run_with_timeout(
                     lambda: self.client.chat.completions.create(
-                        model=self.model, messages=messages,
+                        model=modelo_efectivo, messages=messages,
                         temperature=0.1, top_p=0.8, max_tokens=2048,
                     )
                 )
                 raw_text = (response.choices[0].message.content or "").strip()
             else:
                 chat = self.client.chats.create(
-                    model=self.model,
+                    model=modelo_efectivo,
                     history=self._format_history(history),
                     config={"temperature": 0.1, "top_p": 0.8, "max_output_tokens": 2048},
                 )

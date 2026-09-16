@@ -15,6 +15,7 @@ from utils.validators import EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
 from services.ai_chat import extract_data_block, validate_proposal_data
 from services.scope_items import normalize_edition
+from services.ai_models import ModeloInvalido, listar_modelos, modelo_por_defecto, normalizar_modelo
 import services.scraper
 import services.financial_engine
 import services.ppt_generator
@@ -82,6 +83,27 @@ def _save_proposal_data(session_id, extracted_data, title):
 # ---------------------------------------------------------------------------
 # Rutas
 # ---------------------------------------------------------------------------
+@chat_bp.route('/api/ai/models', methods=['GET'])
+@require_auth
+def ai_models():
+    """
+    Variantes de IA disponibles para el proveedor configurado.
+
+    No permite cambiar de proveedor en caliente: el cliente se crea al arrancar
+    con la clave del .env. Aquí solo se elige la variante dentro de ese
+    proveedor, que es un parámetro de cada llamada.
+    """
+    provider = os.environ.get("AI_PROVIDER", "gemini").strip().lower()
+    if provider != "groq":
+        provider = "gemini"
+    return jsonify({
+        'proveedor': provider,
+        'disponible': ai_engine is not None,
+        'por_defecto': modelo_por_defecto(provider),
+        'modelos': listar_modelos(provider),
+    })
+
+
 @chat_bp.route('/api/chat/create', methods=['POST'])
 @require_auth
 @rate_limit
@@ -153,7 +175,12 @@ def chat_send_message():
                 'ia_disponible': False
             })
 
-        ai_response = ai_engine.send_message(history, user_message)
+        try:
+            modelo = normalizar_modelo(ai_engine.provider, data.get('modelo'))
+        except ModeloInvalido as e:
+            return jsonify({'error': str(e)}), 400
+
+        ai_response = ai_engine.send_message(history, user_message, modelo=modelo)
 
         updated_history = history + [
             {"role": "user", "content": user_message},
@@ -199,6 +226,7 @@ def chat_send_message():
 
         return jsonify({
             'ia_disponible': True,
+            'modelo': modelo,
             'response': ai_response,
             'proposal_ready': proposal_ready,
             'extracted_data': extracted_data

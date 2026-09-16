@@ -7,12 +7,14 @@ from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
 import os
 import logging
+import threading
 from datetime import datetime
 from lxml import etree
 
 from services.scope_items import (
     EDITION_LABELS, get_scope_items, normalize_edition
 )
+from services.themes import hex_a_rgb, normalizar_tema
 
 log = logging.getLogger("ppt_generator")
 
@@ -38,6 +40,63 @@ COLOR_CARD_LINE = RGBColor(0xD9, 0xE2, 0xF2)   # Contorno suave de tarjetas
 # Tipografía corporativa oficial de la plantilla SEIDOR
 FONT_HEADING = 'Arial'
 FONT_BODY = 'Arial'
+
+# ---------------------------------------------------------------------------
+# Aplicación de temas
+# ---------------------------------------------------------------------------
+# Las constantes de arriba se leen como globales del módulo desde las ~20
+# funciones que construyen las láminas (unas 100 referencias). Cambiarlas por un
+# parámetro `tema` obligaría a tocar todas esas firmas y cuerpos, con el riesgo
+# de romper un generador que está muy afinado. En su lugar se intercambian los
+# globales durante la construcción del deck y se restauran después: las
+# funciones existentes recogen el tema sin enterarse.
+#
+# El intercambio es global al proceso, así que va bajo un cerrojo: con
+# `--threads 4` dos generaciones simultáneas con temas distintos se pisarían y
+# saldría un deck con colores mezclados. Generar un deck tarda ~20 s, de modo
+# que serializar cuesta espera pero nunca produce un PPTX incorrecto, que es lo
+# que el consultor no puede permitirse delante de un cliente.
+_CERROJO_TEMA = threading.Lock()
+
+# Nombre del global en este módulo -> clave del tema.
+_MAPA_COLORES = {
+    'COLOR_PRIMARY': 'primary',
+    'COLOR_ROYAL': 'royal',
+    'COLOR_SECONDARY': 'secondary',
+    'COLOR_BACKGROUND': 'background',
+    'COLOR_WHITE': 'white',
+    'COLOR_TEXT': 'text',
+    'COLOR_GRAY': 'gray',
+    'COLOR_CARD_LINE': 'card_line',
+}
+
+
+# Centinela para los argumentos por defecto que dependen del tema.
+#
+# Python evalúa los valores por defecto UNA sola vez, al definir la función, así
+# que `def _style_card(..., line_color=COLOR_CARD_LINE)` congelaba el azul de
+# SEIDOR al importar el módulo: un deck en tema Esmeralda salía con el contorno
+# de tarjeta corporativo mezclado. No sirve None como centinela porque en
+# _style_card significa "sin borde".
+_DEL_TEMA = object()
+
+
+def _aplicar_tema(tema):
+    """Sustituye los globales de color y fuente. Devuelve los valores previos."""
+    previos = {}
+    for nombre_global, clave in _MAPA_COLORES.items():
+        previos[nombre_global] = globals()[nombre_global]
+        globals()[nombre_global] = RGBColor(*hex_a_rgb(tema['colores'][clave]))
+    previos['FONT_HEADING'] = globals()['FONT_HEADING']
+    previos['FONT_BODY'] = globals()['FONT_BODY']
+    globals()['FONT_HEADING'] = tema['fuente_titulos']
+    globals()['FONT_BODY'] = tema['fuente_cuerpo']
+    return previos
+
+
+def _restaurar_tema(previos):
+    for nombre_global, valor in previos.items():
+        globals()[nombre_global] = valor
 
 # Layouts oficiales usados por la plantilla "Capacitación de Joule":
 # se buscan por nombre exacto (con preferencia de master) para heredar
@@ -150,8 +209,16 @@ def _fecha_actual_es():
     return f"{MESES_ES[now.month - 1]} {now.year}"
 
 
-def _set_text(paragraph, text, font=FONT_BODY, size=12, bold=False, color=COLOR_TEXT, align=PP_ALIGN.LEFT):
-    """Aplica texto y formato completo a un párrafo."""
+def _set_text(paragraph, text, font=_DEL_TEMA, size=12, bold=False, color=_DEL_TEMA, align=PP_ALIGN.LEFT):
+    """Aplica texto y formato completo a un párrafo.
+
+    Los valores por defecto se resuelven aquí dentro, no en la firma: en la
+    firma quedarían congelados al importar y no seguirían al tema activo.
+    """
+    if font is _DEL_TEMA:
+        font = FONT_BODY
+    if color is _DEL_TEMA:
+        color = COLOR_TEXT
     paragraph.text = text
     paragraph.font.name = font
     paragraph.font.size = Pt(size)
@@ -187,8 +254,16 @@ def add_header(slide, title_text, subtitle_text):
     _set_text(tf_sub.paragraphs[0], subtitle_text, FONT_BODY, sub_size, False, COLOR_ROYAL)
 
 
-def _style_card(card, fill_color=COLOR_WHITE, line_color=COLOR_CARD_LINE, line_width=1.0):
-    """Aplica el estilo visual de tarjeta corporativa SEIDOR a una forma."""
+def _style_card(card, fill_color=_DEL_TEMA, line_color=_DEL_TEMA, line_width=1.0):
+    """Aplica el estilo visual de tarjeta a una forma.
+
+    line_color=None sigue significando "sin borde"; _DEL_TEMA significa
+    "el del tema activo".
+    """
+    if fill_color is _DEL_TEMA:
+        fill_color = COLOR_WHITE
+    if line_color is _DEL_TEMA:
+        line_color = COLOR_CARD_LINE
     card.fill.solid()
     card.fill.fore_color.rgb = fill_color
     if line_color is None:
@@ -763,7 +838,7 @@ def _add_slide_closing(prs, layout_closing, edition):
 
 
 def generate_deck(company_name, sector, description, complexity, financial_data, output_path,
-                  pains=None, edition="Public"):
+                  pains=None, edition="Public", theme=None):
     """
     Genera la propuesta comercial en PowerPoint usando los layouts oficiales de la
     plantilla corporativa de SEIDOR (mismos fondos de ondas azules, logo y cierre).
@@ -778,12 +853,36 @@ def generate_deck(company_name, sector, description, complexity, financial_data,
     - pains (dict, opcional): Dolores personalizados {'logistics','financial','management'}
       extraídos por el chatbot para personalizar la lámina de dolores.
     - edition (str, opcional): 'Public' (GROW with SAP) o 'Private' (RISE with SAP).
+    - theme (str|dict, opcional): identificador de un tema del catálogo
+      ('seidor', 'grafito'...) o un objeto con colores y tipografía a medida.
+      Ver services/themes.py. Por defecto, la paleta corporativa de SEIDOR.
+
+    Devuelve el tema efectivamente aplicado (con sus advertencias de contraste),
+    para que la API pueda enseñárselo al consultor.
     """
     edition = normalize_edition(edition)
+    tema = normalizar_tema(theme)
     template_name = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                  "Capacitación de Joule - El futuro de SAP.pptx")
     if not os.path.exists(template_name):
         raise FileNotFoundError(f"La plantilla base corporativa no se encuentra en la ruta: {template_name}")
+    previos = None
+    with _CERROJO_TEMA:
+        previos = _aplicar_tema(tema)
+        try:
+            _construir_deck(template_name, company_name, sector, description,
+                            complexity, financial_data, output_path, pains, edition)
+        finally:
+            _restaurar_tema(previos)
+
+    log.info("Presentación corporativa guardada con éxito en: %s (tema: %s)",
+             output_path, tema['id'])
+    return tema
+
+
+def _construir_deck(template_name, company_name, sector, description, complexity,
+                    financial_data, output_path, pains, edition):
+    """Construcción de las láminas. Se llama siempre con el tema ya aplicado."""
     prs = Presentation(template_name)
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
@@ -813,7 +912,6 @@ def generate_deck(company_name, sector, description, complexity, financial_data,
     _add_slide_roi(prs, layout_clean, summary, exp_wks, real_wks, deploy_wks)
     _add_slide_closing(prs, layout_closing, edition)
     prs.save(output_path)
-    log.info("Presentación corporativa guardada con éxito en: %s", output_path)
 
 if __name__ == "__main__":
     from services import financial_engine

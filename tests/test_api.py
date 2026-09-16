@@ -403,6 +403,8 @@ class TestAuthCubreTodaLaSuperficie:
     RUTAS_PROTEGIDAS = [
         ('GET', '/api/proposals'),
         ('GET', '/api/config'),
+        ('GET', '/api/themes'),
+        ('GET', '/api/ai/models'),
         ('POST', '/api/config'),
         ('POST', '/api/preview'),
         ('POST', '/api/generate'),

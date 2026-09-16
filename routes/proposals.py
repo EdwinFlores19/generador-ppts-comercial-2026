@@ -15,6 +15,9 @@ from utils.sanitize import sanitize_input_string
 from utils.validators import validate_inputs, EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
 from services.scope_items import normalize_edition
+from services.themes import (
+    CLAVES_COLOR, FUENTES_SEGURAS, TemaInvalido, listar_temas, normalizar_tema
+)
 import services.scraper
 import services.financial_engine
 import services.ppt_generator
@@ -57,6 +60,7 @@ def get_proposals():
                     'company_name': r['company_name'],
                     'complexity': r['complexity'],
                     'edition': r['edition'] if 'edition' in row_keys else 'Public',
+                    'theme_id': r['theme_id'] if 'theme_id' in row_keys else 'seidor',
                     'sector': r['sector'],
                     'description': r['description'],
                     'active_modules': r['active_modules'],
@@ -79,6 +83,24 @@ def get_proposals():
         # servidor y mensajes internos de SQLite en la respuesta HTTP.
         log.error("Error al obtener propuestas: %s", e, exc_info=True)
         return jsonify({'error': 'No se pudo cargar el historial de propuestas.'}), 500
+
+
+@proposals_bp.route('/api/themes', methods=['GET'])
+@require_auth
+def get_themes():
+    """
+    Catálogo de temas visuales para el selector de la interfaz.
+
+    Devuelve también la lista de fuentes admitidas y las claves de color, para
+    que el formulario de tema a medida se construya solo y no se desincronice
+    con services/themes.py.
+    """
+    return jsonify({
+        'temas': listar_temas(),
+        'por_defecto': 'seidor',
+        'fuentes': list(FUENTES_SEGURAS),
+        'claves_color': list(CLAVES_COLOR),
+    })
 
 
 @proposals_bp.route('/api/config', methods=['GET'])
@@ -184,6 +206,12 @@ def preview_proposal():
         modular_licenses = validation_res['modular_licenses']
         complexity_mode = data.get('complexity_mode', 'auto')
         edition = normalize_edition(data.get('edition'))
+        try:
+            tema = normalizar_tema(data.get('theme'))
+        except TemaInvalido as e:
+            # 400 y no 500: el tema lo elige el consultor y el mensaje le dice
+            # exactamente qué color arreglar.
+            return jsonify({'error': str(e)}), 400
 
         scraped_profile = services.scraper.get_company_profile(company_name, sector=sector_input)
         complexity = scraped_profile['complexity']
@@ -223,7 +251,10 @@ def preview_proposal():
             'payback': fin_results['summary']['payback_period'],
             'advertencias': fin_results['summary'].get('advertencias', []),
             'financial_data': fin_results,
-            'slides_preview': slides_preview
+            'slides_preview': slides_preview,
+            # La web pinta la previsualización con estos colores, así que el
+            # consultor ve el tema antes de gastar 20 s en generar el PPTX.
+            'theme': tema
         })
     except ValueError as e:
         log.warning("[PREVIEW] Error de validación: %s", e)
@@ -269,6 +300,12 @@ def generate_proposal():
         modular_licenses = validation_res['modular_licenses']
         complexity_mode = data.get('complexity_mode', 'auto')
         edition = normalize_edition(data.get('edition'))
+        try:
+            tema = normalizar_tema(data.get('theme'))
+        except TemaInvalido as e:
+            # 400 y no 500: el tema lo elige el consultor y el mensaje le dice
+            # exactamente qué color arreglar.
+            return jsonify({'error': str(e)}), 400
 
         scraped_profile = services.scraper.get_company_profile(company_name, sector=sector_input)
         complexity = scraped_profile['complexity']
@@ -311,7 +348,8 @@ def generate_proposal():
             complexity=complexity,
             financial_data=fin_results,
             output_path=ppt_path,
-            edition=edition
+            edition=edition,
+            theme=tema
         )
 
         with closing(get_db_connection()) as conn:
@@ -322,14 +360,14 @@ def generate_proposal():
                         company_name, complexity, sector, description, active_modules,
                         total_weeks, total_hours, consulting_cost, licensing_cost, support_cost,
                         total_investment, savings_annual, roi_five_years, payback_period, ppt_path, preview_json,
-                        edition
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        edition, theme_id, theme_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     company_name, complexity, sector, description, active_modules_str,
                     summary['total_weeks'], summary['total_hours'], summary['consulting_cost'],
                     summary['licensing_cost'], summary['support_cost'], summary['total_investment'],
                     summary['savings_annual'], summary['roi_five_years'], summary['payback_period'],
-                    ppt_path, preview_json_str, edition
+                    ppt_path, preview_json_str, edition, tema['id'], json.dumps(tema)
                 ))
                 proposal_id = cursor.lastrowid
 
@@ -345,6 +383,7 @@ def generate_proposal():
             'roi': summary['roi_five_years'],
             'payback': summary['payback_period'],
             'advertencias': summary.get('advertencias', []),
+            'theme': tema,
             'slides_preview': slides_preview
         })
     except ValueError as e:
