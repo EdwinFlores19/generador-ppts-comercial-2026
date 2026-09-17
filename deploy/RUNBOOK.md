@@ -132,6 +132,26 @@ IA, o forzar el sector y la complejidad en el formulario.
 | Un usuario agota el límite y bloquea a los demás | Falta `TRUST_PROXY_COUNT=1` | Está en el WSGI de producción; si se despliega en otro sitio, declarar los proxies reales |
 | HTTP 413 al generar | El cuerpo supera `MAX_CONTENT_LENGTH` (2 MB) | Es el comportamiento esperado; subir la variable solo si hay un caso legítimo |
 
+## El WSGI del repositorio NO es el que corre
+
+`deploy/pythonanywhere_wsgi.py` es una **copia de referencia**. El que ejecuta
+PythonAnywhere es `/var/www/consultoredwinflores_pythonanywhere_com_wsgi.py`, y
+`git pull` **no lo toca**. Los dos se desincronizan en silencio: así pasó con
+`TRUST_PROXY_COUNT`, que se commiteó y desplegó sin tener ningún efecto hasta
+que se editó el archivo de `/var/www/`.
+
+Al cambiar variables de entorno en el WSGI, comprobar siempre las dos copias:
+
+```bash
+diff <(grep -v '^#' /var/www/consultoredwinflores_pythonanywhere_com_wsgi.py)      <(grep -v '^#' ~/generador-ppts-comercial-2026/deploy/pythonanywhere_wsgi.py)
+```
+
+Y antes de editarlo, copia de seguridad:
+
+```bash
+cp /var/www/consultoredwinflores_pythonanywhere_com_wsgi.py ~/wsgi_backup_$(date +%F).py
+```
+
 ## Tareas periódicas de cumplimiento
 
 Estas no las hace el sistema solo. Ver `SEGURIDAD.md` para el porqué.

@@ -267,6 +267,10 @@ usaba `python-dotenv 1.0.1`, con PYSEC-2026-2270. Antes de subir una versión:
   horizontal, y la barra de conversaciones quedaba aplastada a 1 px porque en
   un flex en columna `max-height` limita por arriba pero no pone suelo (hace
   falta `flex: 0 0 auto`).
+- **El WSGI del repositorio no es el que corre.** `deploy/pythonanywhere_wsgi.py`
+  es una copia de referencia; PythonAnywhere ejecuta el de `/var/www/` y
+  `git pull` no lo toca. `TRUST_PROXY_COUNT` se desplegó sin efecto hasta
+  editar el de `/var/www/`. Ver `deploy/RUNBOOK.md`.
 - **Un `python app.py` anterior puede seguir ocupando el puerto 5000** aunque su
   terminal ya no exista: el servidor nuevo arranca, no puede enlazar y sigues
   viendo el código viejo. En Windows:
