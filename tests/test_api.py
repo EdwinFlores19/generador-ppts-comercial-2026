@@ -405,6 +405,8 @@ class TestAuthCubreTodaLaSuperficie:
         ('GET', '/api/config'),
         ('GET', '/api/themes'),
         ('GET', '/api/ai/models'),
+        ('GET', '/api/auditoria'),
+        ('POST', '/api/retencion'),
         ('POST', '/api/config'),
         ('POST', '/api/preview'),
         ('POST', '/api/generate'),

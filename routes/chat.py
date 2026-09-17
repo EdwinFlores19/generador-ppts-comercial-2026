@@ -1,10 +1,10 @@
 import os
 import re
 import json
-import traceback
 import logging
 from contextlib import closing
 from datetime import datetime, timezone
+from werkzeug.exceptions import HTTPException
 from flask import Blueprint, request, jsonify, current_app
 from middleware.auth import require_auth
 from middleware.rate_limit import rate_limit
@@ -105,8 +105,8 @@ def ai_models():
 
 
 @chat_bp.route('/api/chat/create', methods=['POST'])
-@require_auth
 @rate_limit
+@require_auth
 def chat_create_session():
     try:
         data = request.json or {}
@@ -129,6 +129,8 @@ def chat_create_session():
 
         return jsonify({'session_id': session_id, 'title': title})
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("[CHATBOT] Error al crear sesión: %s", e, exc_info=True)
         return jsonify({'error': 'No se pudo crear la conversación.'}), 500
@@ -138,8 +140,8 @@ def chat_create_session():
 # (Gemini/Groq) contra la clave del servidor, y además leer y escribir en
 # conversaciones ajenas pasando cualquier session_id.
 @chat_bp.route('/api/chat/message', methods=['POST'])
-@require_auth
 @rate_limit
+@require_auth
 def chat_send_message():
     try:
         data = request.json or {}
@@ -232,13 +234,16 @@ def chat_send_message():
             'extracted_data': extracted_data
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
-        log.error("[CHATBOT] Error al enviar mensaje: %s", e)
-        traceback.print_exc()
-        err_msg = str(e)
-        if any(indicator in err_msg.lower() for indicator in EXCEL_LOCK_INDICATORS):
-            err_msg = EXCEL_LOCKED_MSG
-        return jsonify({'error': err_msg}), 500
+        log.error("[CHATBOT] Error al enviar mensaje: %s", e, exc_info=True)
+        # Solo se devuelve tal cual el aviso del Excel bloqueado, que dice al
+        # consultor exactamente qué hacer. El resto va al log: str(e) filtraba
+        # rutas del servidor y mensajes internos del proveedor de IA.
+        if any(i in str(e).lower() for i in EXCEL_LOCK_INDICATORS):
+            return jsonify({'error': EXCEL_LOCKED_MSG}), 500
+        return jsonify({'error': 'No se pudo procesar el mensaje.'}), 500
 
 
 def _contar_mensajes(crudo):
@@ -257,8 +262,8 @@ def _contar_mensajes(crudo):
 # pocas decenas de sesiones eran megabytes en cada carga del chatbot. Ahora la
 # lista es ligera y el detalle se pide con /api/chat/sessions/<id>.
 @chat_bp.route('/api/chat/sessions', methods=['GET'])
-@require_auth
 @rate_limit
+@require_auth
 def chat_list_sessions():
     try:
         limit, offset = parse_paging(request.args)
@@ -290,14 +295,16 @@ def chat_list_sessions():
 
         return paging_headers(jsonify(sessions), total, limit, offset)
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("[CHATBOT] Error al listar sesiones: %s", e, exc_info=True)
         return jsonify({'error': 'No se pudieron cargar las conversaciones.'}), 500
 
 
 @chat_bp.route('/api/chat/delete/<int:session_id>', methods=['DELETE'])
-@require_auth
 @rate_limit
+@require_auth
 def chat_delete_session(session_id):
     try:
         with closing(get_db_connection()) as conn:
@@ -311,14 +318,16 @@ def chat_delete_session(session_id):
 
         return jsonify({'success': True, 'message': 'Sesión eliminada correctamente.'})
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("[CHATBOT] Error al eliminar sesión: %s", e, exc_info=True)
         return jsonify({'error': 'No se pudo eliminar la conversación.'}), 500
 
 
 @chat_bp.route('/api/chat/sessions/<int:session_id>', methods=['GET'])
-@require_auth
 @rate_limit
+@require_auth
 def chat_get_session(session_id):
     """
     Detalle completo de una conversación (mensajes incluidos). Existe para que
@@ -347,14 +356,16 @@ def chat_get_session(session_id):
             'updated_at': r['updated_at']
         })
 
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("[CHATBOT] Error al obtener la sesión %s: %s", session_id, e)
         return jsonify({'error': 'No se pudo cargar la conversación.'}), 500
 
 
 @chat_bp.route('/api/chat/generate/<int:session_id>', methods=['POST'])
-@require_auth
 @rate_limit
+@require_auth
 def chat_generate_proposal(session_id):
     try:
         with closing(get_db_connection()) as conn:
@@ -485,10 +496,10 @@ def chat_generate_proposal(session_id):
     except ValueError as e:
         log.warning("[CHAT GENERATE] Error de validación: %s", e)
         return jsonify({'error': str(e)}), 400
+    except HTTPException:
+        raise
     except Exception as e:
-        log.error("[CHATBOT] Error al generar propuesta desde chat: %s", e)
-        traceback.print_exc()
-        err_msg = str(e)
-        if any(indicator in err_msg.lower() for indicator in EXCEL_LOCK_INDICATORS):
-            err_msg = EXCEL_LOCKED_MSG
-        return jsonify({'error': err_msg}), 500
+        log.error("[CHATBOT] Error al generar propuesta desde chat: %s", e, exc_info=True)
+        if any(i in str(e).lower() for i in EXCEL_LOCK_INDICATORS):
+            return jsonify({'error': EXCEL_LOCKED_MSG}), 500
+        return jsonify({'error': 'No se pudo generar la propuesta.'}), 500

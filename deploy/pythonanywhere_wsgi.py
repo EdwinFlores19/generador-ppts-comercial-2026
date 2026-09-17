@@ -16,6 +16,13 @@ os.environ.setdefault("OUTPUT_DIR", f"{PROJECT}/generated_decks")
 # Reducir latencia del scraper: la lista blanca del plan gratuito bloquea DuckDuckGo
 os.environ.setdefault("SCRAPER_MAX_RETRIES", "1")
 
+# PythonAnywhere sirve la app detrás de UN balanceador, así que request.remote_addr
+# es su IP interna (10.0.x.x) para todos los clientes: sin esto, el limitador de
+# peticiones mete a todos los consultores en el mismo cupo y uno solo puede dejar
+# fuera al resto. El número debe ser exacto: declarar más proxies de los que hay
+# permite falsificar X-Forwarded-For y saltarse el límite.
+os.environ.setdefault("TRUST_PROXY_COUNT", "1")
+
 # Cargar .env del proyecto. Variables relevantes:
 #   AI_PROVIDER      gemini (default) | groq
 #   GEMINI_API_KEY   requerida si AI_PROVIDER=gemini

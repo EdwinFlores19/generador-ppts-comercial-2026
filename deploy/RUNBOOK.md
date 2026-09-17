@@ -129,6 +129,36 @@ IA, o forzar el sector y la complejidad en el formulario.
 | El navegador dice "Respuesta inesperada del servidor" con HTTP 200 | Un número no finito llegó al cálculo | Ya se rechaza en validación; revisar el log si reaparece |
 | Un frontend externo recibe error de CORS | CORS está cerrado por defecto | Declarar el origen en `CORS_ORIGINS` del `.env` |
 | `scripts/check_production.py` devuelve 401 | El script no lleva token | `API_TOKEN=<token> python scripts/check_production.py` (acepta también `BASE_URL`) |
+| Un usuario agota el límite y bloquea a los demás | Falta `TRUST_PROXY_COUNT=1` | Está en el WSGI de producción; si se despliega en otro sitio, declarar los proxies reales |
+| HTTP 413 al generar | El cuerpo supera `MAX_CONTENT_LENGTH` (2 MB) | Es el comportamiento esperado; subir la variable solo si hay un caso legítimo |
+
+## Tareas periódicas de cumplimiento
+
+Estas no las hace el sistema solo. Ver `SEGURIDAD.md` para el porqué.
+
+**Mensual — purga por retención.** Primero en seco, para ver qué se iría:
+
+```bash
+curl -X POST https://<dominio>/api/retencion -H "Content-Type: application/json" -d '{"dias": 365}'
+```
+
+Y cuando el resultado convenza, con `{"dias": 365, "confirmar": true}`. Libera
+además espacio en disco: cada PPTX ocupa ~40 MB de los 512 MB del plan gratuito.
+
+**Mensual — revisar el registro de auditoría:**
+
+```bash
+curl -s "https://<dominio>/api/auditoria?limit=100"
+```
+
+**Trimestral — vulnerabilidades en dependencias:**
+
+```bash
+pip-audit -r requirements.txt
+```
+
+Si aparece alguna, subir la versión en `requirements.txt`, pasar la suite
+completa y desplegar. No dejar rangos abiertos (`>=`).
 
 Logs:
 

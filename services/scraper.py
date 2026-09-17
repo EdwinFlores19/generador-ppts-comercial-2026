@@ -138,7 +138,10 @@ def fallback_sectorial(company_name, sector):
     Asigna un perfil genérico automatizado según el sector industrial seleccionado
     por el usuario, evitando que la aplicación lance un error 500 si el raspado falla.
     """
-    log.info("Aplicando fallback sectorial para '%s' con sector '%s'...", company_name, sector)
+    # A DEBUG y no a INFO: el nombre del prospecto es información comercial
+    # (revela a quién está cotizando SEIDOR) y no aporta nada en un log de
+    # operación normal. Principio de minimización de datos.
+    log.debug("Aplicando fallback sectorial para '%s' con sector '%s'...", company_name, sector)
 
     sector_info = _build_sector_info(company_name)
     info = sector_info.get(sector, {
@@ -231,7 +234,7 @@ def search_company_pe(company_name):
         return ""
 
     query = f"{company_name} operaciones peru sedes plantas"
-    log.info("Iniciando raspado web para la consulta: '%s'...", query)
+    log.debug("Iniciando raspado web para la consulta: '%s'...", query)
 
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -397,7 +400,7 @@ def get_company_profile(company_name, sector=None):
         perfil_por_nombre["is_fallback"] = True
         return perfil_por_nombre
 
-    log.info("El nombre '%s' no aporta señal sectorial. Fallback por sector indicado.", company_name)
+    log.debug("El nombre '%s' no aporta señal sectorial. Fallback por sector indicado.", company_name)
     return fallback_sectorial(company_name, sector)
 
 

@@ -30,6 +30,9 @@ La BBDD y las tablas se crean solas al arrancar (`models/database.py:init_db`).
 | `services/preview.py` | Estructura de láminas para la previsualización web |
 | `services/themes.py` | Catálogo de temas visuales y validación de contraste |
 | `services/ai_models.py` | Catálogo de variantes de modelo por proveedor |
+| `services/pptx_privacy.py` | Saneado de metadatos del PPTX entregable |
+| `services/auditoria.py` | Registro de auditoría y purga por retención |
+| `SEGURIDAD.md` | Datos tratados, controles y riesgos aceptados |
 | `utils/paging.py` | `parse_paging` / `paging_headers` — paginación de los listados |
 | `static/common.js` | `escapeHtml`, `authHeaders`, `fetchJson`, `showToast`, `descargarArchivo` — **compartido** |
 | `deploy/RUNBOOK.md` | Operación en producción. **Leer antes de tocar el despliegue.** |
@@ -204,6 +207,41 @@ ni tocar el `.env`. `services/ai_models.py` valida contra el catálogo del
 proveedor activo — y admite además el modelo que haya en la variable de entorno,
 para no romper un despliegue que ya funcionaba. **El proveedor (Gemini o Groq)
 no se puede cambiar en caliente**, solo la variante dentro de él.
+
+**El PPTX se sanea antes de entregarse.** Un .pptx es un ZIP y arrastra mucho
+más que las láminas: el deck salía con el nombre de dos empleados en
+`author`/`last_modified_by`, los 74 títulos de la plantilla interna, el esquema
+de content types de **SharePoint de SEIDOR** (14,7 KB en `customXml/`), una
+miniatura del deck original y `created: 2022`. Todo eso llegaba al cliente.
+`services/pptx_privacy.py` fija las propiedades antes de guardar y reescribe el
+ZIP después para quitar las partes que python-pptx no sabe eliminar. Si el
+saneado falla **se conserva el archivo original**: un deck con metadatos de más
+es mejor que ninguno delante de un cliente. Al tocar el generador, comprobar con
+`tests/test_seguridad.py::TestPrivacidadDelDeck` que el paquete sigue íntegro.
+
+**`@rate_limit` va SIEMPRE encima de `@require_auth`.** Los decoradores se
+aplican de abajo arriba, así que el de arriba corre primero. Con el orden
+contrario los 401 no consumían cupo y el token se podía probar por fuerza bruta
+sin límite (medido: 40 intentos, cero 429).
+
+**Las excepciones HTTP del framework se re-lanzan.** El `except Exception` de
+cada vista convertía el 413 de Werkzeug en un 500 con el mensaje equivocado.
+Toda vista lleva `except HTTPException: raise` antes del genérico.
+
+**Tras un proxy, `request.remote_addr` no es el cliente.** En PythonAnywhere
+Flask veía `10.0.4.129` (el balanceador) para todos, así que el limitador metía
+a todos los consultores en el mismo cupo. Se corrige con `TRUST_PROXY_COUNT`,
+que debe declarar el número **exacto** de proxies: de más, permite falsificar
+`X-Forwarded-For` y saltarse el límite.
+
+**Toda acción sobre datos de cliente deja rastro.** `services/auditoria.py`
+registra generación, descarga, borrado, cambios de tarifas y purgas. El endpoint
+es de solo lectura a propósito. Al añadir una operación sobre `proposals`,
+añadir también su `registrar(...)`.
+
+**Las dependencias van fijadas con `==`.** Al fijarlas apareció que producción
+usaba `python-dotenv 1.0.1`, con PYSEC-2026-2270. Antes de subir una versión:
+`pip-audit -r requirements.txt` y la suite completa.
 
 ## Convenciones
 

@@ -69,6 +69,23 @@ def init_db():
                 )
             """)
 
+            # Registro de auditoría: qué se hizo con los datos comerciales de
+            # los prospectos y cuándo. Sin esto no se puede responder a "quién
+            # descargó la propuesta de este cliente", que es justo lo que pide
+            # una revisión de seguridad.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS auditoria (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    accion TEXT NOT NULL,
+                    recurso TEXT,
+                    detalle TEXT,
+                    origen TEXT,
+                    actor TEXT,
+                    resultado TEXT DEFAULT 'ok',
+                    ocurrido_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS chat_sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,6 +146,10 @@ def init_db():
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_chat_sessions_actualizadas
                 ON chat_sessions (updated_at DESC, id DESC)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_auditoria_fecha
+                ON auditoria (ocurrido_en DESC, id DESC)
             """)
 
     log.info("Base de datos inicializada correctamente: %s", DB_NAME)

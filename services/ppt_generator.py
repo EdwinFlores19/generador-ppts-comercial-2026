@@ -15,6 +15,7 @@ from services.scope_items import (
     EDITION_LABELS, get_scope_items, normalize_edition
 )
 from services.themes import hex_a_rgb, normalizar_tema
+from services.pptx_privacy import fijar_propiedades, limpiar_metadatos
 
 log = logging.getLogger("ppt_generator")
 
@@ -911,7 +912,18 @@ def _construir_deck(template_name, company_name, sector, description, complexity
     _add_slide_economics(prs, layout_clean, summary)
     _add_slide_roi(prs, layout_clean, summary, exp_wks, real_wks, deploy_wks)
     _add_slide_closing(prs, layout_closing, edition)
+
+    # Propiedades del documento ANTES de guardar: sin esto el deck sale con el
+    # autor, la fecha de creación (2022) y el nombre de la última persona que
+    # editó la plantilla corporativa.
+    fijar_propiedades(prs, company_name, EDITION_LABELS[edition]['nombre'])
     prs.save(output_path)
+
+    # Y después, las partes del paquete que python-pptx no sabe quitar: la
+    # miniatura del deck interno, el esquema de SharePoint de SEIDOR y el
+    # inventario de las 74 láminas de la plantilla. Todo eso viajaba hasta el
+    # cliente dentro del .pptx.
+    limpiar_metadatos(output_path)
 
 if __name__ == "__main__":
     from services import financial_engine

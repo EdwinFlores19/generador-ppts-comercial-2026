@@ -6,6 +6,7 @@ import traceback
 import logging
 from contextlib import closing
 from datetime import datetime
+from werkzeug.exceptions import HTTPException
 from flask import Blueprint, request, jsonify, send_file, current_app
 from middleware.auth import require_auth
 from middleware.rate_limit import rate_limit
@@ -14,6 +15,7 @@ from utils.paging import parse_paging, paging_headers
 from utils.sanitize import sanitize_input_string
 from utils.validators import validate_inputs, EXCEL_LOCK_INDICATORS, EXCEL_LOCKED_MSG
 from services.preview import generate_preview_data
+from services.auditoria import consultar as consultar_auditoria, purgar_antiguas, registrar
 from services.scope_items import normalize_edition
 from services.themes import (
     CLAVES_COLOR, FUENTES_SEGURAS, TemaInvalido, listar_temas, normalizar_tema
@@ -22,6 +24,10 @@ import services.scraper
 import services.financial_engine
 import services.ppt_generator
 
+# Las excepciones HTTP del framework (413 petición demasiado grande, 429, …) se
+# dejan pasar: un `except Exception` genérico las convertía en un 500 con el
+# mensaje equivocado. Werkzeug las lanza al LEER el cuerpo, o sea ya dentro del
+# try de la vista, así que hay que re-lanzarlas explícitamente.
 log = logging.getLogger("routes.proposals")
 proposals_bp = Blueprint('proposals', __name__)
 
@@ -29,7 +35,12 @@ proposals_bp = Blueprint('proposals', __name__)
 # El historial crecía sin techo: con 405 propuestas el endpoint devolvía el JSON
 # completo (preview_json incluido, ~2 MB) y el navegador pintaba 405 filas de
 # golpe. Se pagina en servidor y el front pide más bajo demanda.
+# @rate_limit va ENCIMA de @require_auth a propósito: los decoradores se
+# aplican de abajo arriba, así que el de más arriba se ejecuta primero. Con el
+# orden contrario, un 401 salía sin pasar por el limitador y se podían probar
+# tokens sin límite (comprobado: 40 intentos fallidos, 0 respuestas 429).
 @proposals_bp.route('/api/proposals', methods=['GET'])
+@rate_limit
 @require_auth
 def get_proposals():
     try:
@@ -78,6 +89,8 @@ def get_proposals():
                     'created_at': r['created_at']
                 })
             return paging_headers(jsonify(proposals), total, limit, offset)
+    except HTTPException:
+        raise
     except Exception as e:
         # El detalle va al log, no al cliente: str(e) filtraba rutas del
         # servidor y mensajes internos de SQLite en la respuesta HTTP.
@@ -85,7 +98,65 @@ def get_proposals():
         return jsonify({'error': 'No se pudo cargar el historial de propuestas.'}), 500
 
 
+@proposals_bp.route('/api/auditoria', methods=['GET'])
+@rate_limit
+@require_auth
+def get_auditoria():
+    """
+    Registro de auditoría: qué se hizo con los datos de los prospectos.
+
+    Es de solo lectura a propósito. Un registro que la propia aplicación puede
+    borrar no sirve como evidencia; la depuración va por retención (purga por
+    antigüedad), no por borrado selectivo.
+    """
+    try:
+        limite, offset = parse_paging(request.args, page_size=100)
+        accion = request.args.get('accion') or None
+        eventos, total = consultar_auditoria(limite=limite, offset=offset, accion=accion)
+        return paging_headers(jsonify(eventos), total, limite, offset)
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("Error al leer el registro de auditoría: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudo leer el registro de auditoría.'}), 500
+
+
+@proposals_bp.route('/api/retencion', methods=['POST'])
+@rate_limit
+@require_auth
+def ejecutar_retencion():
+    """
+    Aplica la política de conservación: borra propuestas y conversaciones que
+    superen el plazo, con sus PPTX.
+
+    Por defecto **simula**: hay que pedir explícitamente `confirmar: true` para
+    que borre. Es una operación irreversible sobre datos comerciales reales.
+    """
+    try:
+        data = request.json or {}
+        dias = data.get('dias')
+        confirmar = data.get('confirmar') is True
+        resumen = purgar_antiguas(
+            dias=dias,
+            directorio_salida=current_app.config.get('OUTPUT_DIR', 'generated_decks'),
+            simular=not confirmar,
+        )
+        resumen['mensaje'] = (
+            'Purga aplicada.' if confirmar
+            else 'Simulación: no se ha borrado nada. Envía {"confirmar": true} para ejecutarla.'
+        )
+        return jsonify(resumen)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("Error al ejecutar la retención: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudo aplicar la política de retención.'}), 500
+
+
 @proposals_bp.route('/api/themes', methods=['GET'])
+@rate_limit
 @require_auth
 def get_themes():
     """
@@ -104,6 +175,7 @@ def get_themes():
 
 
 @proposals_bp.route('/api/config', methods=['GET'])
+@rate_limit
 @require_auth
 def get_config():
     try:
@@ -118,9 +190,11 @@ def get_config():
                     'descripcion': r['descripcion']
                 }
             return jsonify(config)
+    except HTTPException:
+        raise
     except Exception as e:
-        log.error("Error al leer configuración comercial: %s", e)
-        return jsonify({'error': str(e)}), 500
+        log.error("Error al leer configuración comercial: %s", e, exc_info=True)
+        return jsonify({'error': 'No se pudo leer la configuración comercial.'}), 500
 
 
 CONFIG_PARAMS = (
@@ -130,6 +204,7 @@ CONFIG_PARAMS = (
 
 
 @proposals_bp.route('/api/config', methods=['POST'])
+@rate_limit
 @require_auth
 def update_config():
     """
@@ -172,11 +247,16 @@ def update_config():
                     "UPDATE configuracion_comercial SET valor = ? WHERE parametro = ?",
                     cambios
                 )
+        registrar('config_modificada',
+                  detalle=', '.join(f"{k}={v}" for v, k in cambios))
+
         return jsonify({
             'success': True,
             'message': 'Configuración comercial guardada con éxito en SQLite.',
             'actualizados': [k for _, k in cambios]
         })
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("Error al actualizar configuración comercial: %s", e, exc_info=True)
         return jsonify({'error': 'No se pudo guardar la configuración comercial.'}), 500
@@ -185,8 +265,8 @@ def update_config():
 # La previsualización expone tarifas, márgenes y el cálculo comercial completo:
 # es información interna, no pública.
 @proposals_bp.route('/api/preview', methods=['POST'])
-@require_auth
 @rate_limit
+@require_auth
 def preview_proposal():
     try:
         data = request.json or {}
@@ -259,6 +339,8 @@ def preview_proposal():
     except ValueError as e:
         log.warning("[PREVIEW] Error de validación: %s", e)
         return jsonify({'error': str(e)}), 400
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("Error al previsualizar la propuesta: %s", e)
         traceback.print_exc()
@@ -279,8 +361,8 @@ def health_check():
 
 
 @proposals_bp.route('/api/generate', methods=['POST'])
-@require_auth
 @rate_limit
+@require_auth
 def generate_proposal():
     try:
         data = request.json or {}
@@ -371,6 +453,9 @@ def generate_proposal():
                 ))
                 proposal_id = cursor.lastrowid
 
+        registrar('propuesta_generada', recurso=proposal_id,
+                  detalle=f"{company_name} · {complexity} · {edition} · tema {tema['id']}")
+
         return jsonify({
             'success': True,
             'proposal_id': proposal_id,
@@ -389,6 +474,8 @@ def generate_proposal():
     except ValueError as e:
         log.warning("[GENERATE] Error de validación: %s", e)
         return jsonify({'error': str(e)}), 400
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("Error al generar propuesta comercial SAP: %s", e, exc_info=True)
         err_msg = str(e)
@@ -420,8 +507,8 @@ def _nombre_descarga(company_name, complexity):
 
 
 @proposals_bp.route('/download/<int:proposal_id>', methods=['GET'])
-@require_auth
 @rate_limit
+@require_auth
 def download_ppt(proposal_id):
     try:
         with closing(get_db_connection()) as conn:
@@ -444,15 +531,18 @@ def download_ppt(proposal_id):
             return "Archivo de presentación no encontrado en el servidor.", 404
 
         clean_name = _nombre_descarga(row['company_name'], row['complexity'])
+        registrar('propuesta_descargada', recurso=proposal_id, detalle=row['company_name'])
         return send_file(abs_path, as_attachment=True, download_name=clean_name)
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("Error al descargar la presentación: %s", e)
         return "Internal Server Error", 500
 
 
 @proposals_bp.route('/api/proposals/<int:proposal_id>', methods=['DELETE'])
-@require_auth
 @rate_limit
+@require_auth
 def delete_proposal(proposal_id):
     """
     Elimina una propuesta del historial y su archivo PPTX.
@@ -490,8 +580,14 @@ def delete_proposal(proposal_id):
                 log.warning("Propuesta %s eliminada, pero no se pudo borrar %s: %s",
                             proposal_id, ppt_path, file_err)
 
+        registrar('propuesta_eliminada', recurso=proposal_id)
+
         return jsonify({'success': True, 'message': 'Propuesta eliminada del historial.'})
 
+    except HTTPException:
+        raise
     except Exception as e:
-        log.error("Error al eliminar la propuesta %s: %s", proposal_id, e)
-        return jsonify({'error': str(e)}), 500
+        # Sin exc_info ni mensaje genérico, este manejador devolvía str(e) al
+        # cliente: era el último que quedaba filtrando detalle interno.
+        log.error("Error al eliminar la propuesta %s: %s", proposal_id, e, exc_info=True)
+        return jsonify({'error': 'No se pudo eliminar la propuesta.'}), 500

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build: .
@@ -21,7 +19,19 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-}
       - API_TOKEN=${API_TOKEN:-}
+      # Proxies delante del contenedor. 0 = acceso directo. Ponerlo a 1 solo
+      # con un reverse proxy propio: declarar más de los que hay permite
+      # falsificar X-Forwarded-For y saltarse el límite de peticiones.
+      - TRUST_PROXY_COUNT=${TRUST_PROXY_COUNT:-0}
+      - DIAS_RETENCION=${DIAS_RETENCION:-365}
     restart: unless-stopped
+    # Endurecido del contenedor: sin escalada de privilegios y sin las
+    # capacidades de Linux que esta aplicación no necesita (no abre puertos
+    # privilegiados dentro del contenedor ni manipula la red).
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s
