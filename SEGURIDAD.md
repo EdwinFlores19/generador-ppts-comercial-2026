@@ -64,7 +64,10 @@ CORS cerrado salvo que se declare `CORS_ORIGINS`.
 - Los errores 500 no devuelven detalle interno; el detalle va al log.
 
 ### Confidencialidad del entregable
-El `.pptx` se sanea antes de entregarse (ver §3).
+El `.pptx` se sanea antes de entregarse (ver §3). Además se **podan las partes
+que la propuesta no usa**: de las 82 imágenes de la plantilla corporativa solo
+viajan al cliente las 11 que la propuesta necesita. Las otras 71 eran material
+interno (arte y fotos de un curso) que se enviaba sin motivo.
 
 ### Trazabilidad
 Tabla `auditoria` con acción, recurso, detalle, origen, resultado y fecha UTC.
@@ -133,8 +136,8 @@ Conviene declararlos: no todo es corregible dentro del alcance y el plan actual.
   y las rota — pero **hay que programarlo** como tarea diaria en PythonAnywhere.
   Ver `deploy/RUNBOOK.md`. Mientras no se programe, esto sigue siendo un riesgo.
 - **Plan gratuito de PythonAnywhere**: la web caduca cada mes si nadie entra, el
-  disco son 512 MB (~12 propuestas de 40 MB) y la salida a internet está
-  restringida por lista blanca.
+  disco son 512 MB (~355 propuestas desde que el deck pesa 1,4 MB) y la salida a
+  internet está restringida por lista blanca.
 
 ---
 

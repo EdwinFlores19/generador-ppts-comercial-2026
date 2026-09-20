@@ -31,6 +31,7 @@ La BBDD y las tablas se crean solas al arrancar (`models/database.py:init_db`).
 | `services/themes.py` | Catálogo de temas visuales y validación de contraste |
 | `services/ai_models.py` | Catálogo de variantes de modelo por proveedor |
 | `services/pptx_privacy.py` | Saneado de metadatos del PPTX entregable |
+| `services/pptx_slim.py` | Poda del paquete: 40 MB → 1,4 MB sin tocar las láminas |
 | `services/auditoria.py` | Registro de auditoría y purga por retención |
 | `scripts/backup.py` | Copia de seguridad consistente, verificada y rotada |
 | `static/index.js`, `static/chatbot.js` | JS de cada pantalla (fuera del HTML por la CSP) |
@@ -221,6 +222,27 @@ saneado falla **se conserva el archivo original**: un deck con metadatos de más
 es mejor que ninguno delante de un cliente. Al tocar el generador, comprobar con
 `tests/test_seguridad.py::TestPrivacidadDelDeck` que el paquete sigue íntegro.
 
+**El deck se poda antes de entregarse: 40 MB → 1,4 MB.** El 99,2% del peso eran
+82 imágenes heredadas de la plantilla (un curso de 63 láminas); la propuesta usa
+11. Importa por una razón concreta: **una propuesta de 40 MB no se puede enviar
+por correo** — los servidores corporativos cortan entre 10 y 25 MB — y en los
+512 MB del plan gratuito solo cabían 12 propuestas; ahora caben ~355.
+
+`services/pptx_slim.py` calcula qué partes son alcanzables desde las láminas y
+descarta el resto. Dos cosas que hay que respetar al tocarlo:
+
+- **No seguir la rama master → layouts no usados.** Un master referencia TODOS
+  sus layouts, así que seguirla vuelve a arrastrar el paquete entero: medido,
+  la reducción cae del 96% al 16%.
+- **Descartar partes obliga a rehacer tres ficheros** o PowerPoint da el archivo
+  por corrupto: `presentation.xml` (quitar los `sldMasterId` descartados y sus
+  relaciones), el `sldLayoutIdLst` de cada master conservado, y los `Override`
+  de `[Content_Types].xml`.
+
+`tests/test_peso_deck.py` compara el deck podado contra uno sin podar y exige
+que **el XML de cada lámina y las imágenes que alcanza sean idénticos**: un deck
+ligero con el fondo de ondas roto sería mucho peor que uno grande.
+
 **`@rate_limit` va SIEMPRE encima de `@require_auth`.** Los decoradores se
 aplican de abajo arriba, así que el de arriba corre primero. Con el orden
 contrario los 401 no consumían cupo y el token se podía probar por fuerza bruta
@@ -265,6 +287,8 @@ usaba `python-dotenv 1.0.1`, con PYSEC-2026-2270. Antes de subir una versión:
 - **El botón "Reload" de PythonAnywhere no siempre funciona.** Método fiable:
   `touch /var/www/<dominio>_wsgi.py`. Ver `deploy/RUNBOOK.md`.
 - **El plan gratuito apaga la web app cada ~1 mes**: es la causa #1 de caídas.
+- **Los 512 MB de disco ya no son el cuello de botella** desde que el deck pesa
+  1,4 MB en vez de 40 MB (~355 propuestas en vez de 12), pero siguen estando.
 - **DuckDuckGo está bloqueado** por la lista blanca del plan gratuito; el
   scraper cae al fallback sectorial. Para clasificar bien, usar el chatbot.
 - **El Excel del estimador se lee con copia en caliente** si Windows lo tiene

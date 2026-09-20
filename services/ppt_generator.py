@@ -16,6 +16,7 @@ from services.scope_items import (
 )
 from services.themes import hex_a_rgb, normalizar_tema
 from services.pptx_privacy import fijar_propiedades, limpiar_metadatos
+from services.pptx_slim import adelgazar
 
 log = logging.getLogger("ppt_generator")
 
@@ -876,8 +877,15 @@ def generate_deck(company_name, sector, description, complexity, financial_data,
         finally:
             _restaurar_tema(previos)
 
-    log.info("Presentación corporativa guardada con éxito en: %s (tema: %s)",
-             output_path, tema['id'])
+    # Se poda lo que la propuesta no usa. La plantilla corporativa trae 82
+    # imágenes de un curso de 63 láminas; esta propuesta necesita 11. Sin esto
+    # el deck pesa 40 MB y NO se puede enviar por correo (los servidores
+    # corporativos cortan entre 10 y 25 MB). Queda en ~1,4 MB, con el contenido
+    # de cada lámina byte a byte idéntico.
+    adelgazar(output_path)
+
+    log.info("Presentación corporativa guardada con éxito en: %s (tema: %s, %.1f MB)",
+             output_path, tema['id'], os.path.getsize(output_path) / 1048576)
     return tema
 
 
