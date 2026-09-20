@@ -316,6 +316,38 @@
                     <i class="fa-solid fa-history"></i>
                     <h2>Historial de Propuestas Generadas</h2>
                 </div>
+
+                <div class="history-filters">
+                    <div class="input-group input-group--search">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <label class="sr-only" for="buscarHistorial">Buscar por empresa o sector</label>
+                        <input type="search" id="buscarHistorial" class="form-control"
+                               placeholder="Buscar por empresa o sector…" autocomplete="off">
+                    </div>
+                    <label class="sr-only" for="filtroComplejidad">Filtrar por complejidad</label>
+                    <select id="filtroComplejidad" class="form-control form-control--no-icon">
+                        <option value="">Toda complejidad</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Media">Media</option>
+                    </select>
+                    <label class="sr-only" for="filtroEdicion">Filtrar por edición</label>
+                    <select id="filtroEdicion" class="form-control form-control--no-icon">
+                        <option value="">Ambas ediciones</option>
+                        <option value="Public">Public</option>
+                        <option value="Private">Private</option>
+                    </select>
+                    <label class="sr-only" for="filtroAntiguedad">Filtrar por antigüedad</label>
+                    <select id="filtroAntiguedad" class="form-control form-control--no-icon">
+                        <option value="">Cualquier fecha</option>
+                        <option value="7">Última semana</option>
+                        <option value="30">Último mes</option>
+                        <option value="90">Último trimestre</option>
+                        <option value="365">Último año</option>
+                    </select>
+                    <button type="button" class="btn-reset-theme" id="limpiarFiltros" hidden>
+                        <i class="fa-solid fa-xmark" aria-hidden="true"></i> Limpiar
+                    </button>
+                </div>
                 
                 <div class="table-responsive" tabindex="0" role="region" aria-label="Historial de propuestas generadas">
                     <table>

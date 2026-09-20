@@ -122,6 +122,28 @@ dependen de esa forma. El orden lleva `id DESC` como segundo criterio porque
 `created_at`/`updated_at` empatan entre filas del mismo segundo y la paginación
 repetía registros.
 
+**El historial se busca en el servidor, no en el navegador.** `?q=` busca en
+razón social y sector a la vez, y se combina con `complejidad`, `edicion` y
+`dias`. Filtrar sobre `proposalsCache` en el front dejaría fuera las propuestas
+que viven en páginas aún no descargadas — justo el caso que motiva tener
+buscador con cientos de filas. Dos detalles que hay que respetar:
+
+- El `COUNT` lleva el mismo `WHERE` que el `SELECT`. Si no, el pie diría
+  "50 de 403" con tres resultados en pantalla y "Cargar más" ofrecería páginas
+  que no existen.
+- El corte de `dias` se genera con `strftime('%Y-%m-%d %H:%M:%S')`, que es
+  como SQLite escribe `created_at`. La comparación es de **texto**: con
+  `.isoformat()` el corte llevaba `T` y offset, y como `' ' < 'T'` las
+  propuestas del propio día del corte quedaban todas fuera ("último mes"
+  devolvía 29 días).
+
+**El atributo `hidden` necesita `[hidden] { display: none !important }`.** La
+regla del navegador tiene la especificidad más baja que existe, así que
+cualquier regla propia con `display` la anula en silencio: `.history-footer`
+era `display: flex`, el JS ponía `hidden = true` y el pie seguía en pantalla
+con el recuento de la carga anterior sobre una tabla vacía. El JS parecía
+correcto porque lo era.
+
 **`GET /api/chat/sessions` es ligero**: devuelve título, fecha, `message_count`
 y `tiene_datos`, **no** los mensajes. El detalle de una conversación se pide con
 `GET /api/chat/sessions/<id>`, que sí los trae. Antes la barra lateral

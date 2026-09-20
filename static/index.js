@@ -461,10 +461,63 @@ function actualizarPieHistorial() {
         return;
     }
     pie.hidden = false;
-    contador.textContent = `Mostrando ${proposalsCache.length} de ${historialTotal} propuestas`;
+    contador.textContent = hayFiltrosActivos()
+        ? `Mostrando ${proposalsCache.length} de ${historialTotal} coincidencias`
+        : `Mostrando ${proposalsCache.length} de ${historialTotal} propuestas`;
     boton.hidden = proposalsCache.length >= historialTotal;
     boton.disabled = historialCargando;
 }
+
+/**
+ * Filtros activos del historial, como query string.
+ *
+ * El filtrado se hace en el SERVIDOR, no sobre proposalsCache: la caché solo
+ * tiene las páginas ya descargadas, así que filtrar en el navegador dejaría
+ * fuera propuestas que sí cumplen el criterio pero viven en páginas todavía
+ * no cargadas — justo el caso que motiva tener buscador con cientos de filas.
+ */
+function filtrosDelHistorial() {
+    const partes = [];
+    const termino = document.getElementById('buscarHistorial')?.value.trim();
+    if (termino) partes.push('q=' + encodeURIComponent(termino));
+    const complejidad = document.getElementById('filtroComplejidad')?.value;
+    if (complejidad) partes.push('complejidad=' + encodeURIComponent(complejidad));
+    const edicion = document.getElementById('filtroEdicion')?.value;
+    if (edicion) partes.push('edicion=' + encodeURIComponent(edicion));
+    const dias = document.getElementById('filtroAntiguedad')?.value;
+    if (dias) partes.push('dias=' + encodeURIComponent(dias));
+    return partes.length ? '&' + partes.join('&') : '';
+}
+
+function hayFiltrosActivos() {
+    return filtrosDelHistorial() !== '';
+}
+
+/** Un filtro nuevo reinicia la paginación: empieza por la primera página. */
+function aplicarFiltros() {
+    const boton = document.getElementById('limpiarFiltros');
+    if (boton) boton.hidden = !hayFiltrosActivos();
+    fetchHistory();
+}
+
+// Se espera a que el consultor deje de teclear: sin esto saldría una petición
+// por pulsación y el limitador cortaría a mitad de una palabra.
+let temporizadorBusqueda = null;
+document.getElementById('buscarHistorial')?.addEventListener('input', () => {
+    clearTimeout(temporizadorBusqueda);
+    temporizadorBusqueda = setTimeout(aplicarFiltros, 350);
+});
+
+['filtroComplejidad', 'filtroEdicion', 'filtroAntiguedad'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', aplicarFiltros);
+});
+
+document.getElementById('limpiarFiltros')?.addEventListener('click', () => {
+    document.getElementById('buscarHistorial').value = '';
+    ['filtroComplejidad', 'filtroEdicion', 'filtroAntiguedad']
+        .forEach(id => { document.getElementById(id).value = ''; });
+    aplicarFiltros();
+});
 
 /**
  * Carga el historial paginado. Con cientos de propuestas, traerlas todas
@@ -482,7 +535,7 @@ async function fetchHistory(anexar = false) {
     actualizarPieHistorial();
 
     try {
-        const res = await fetch(`/api/proposals?limit=${HISTORIAL_PAGINA}&offset=${historialOffset}`, {
+        const res = await fetch(`/api/proposals?limit=${HISTORIAL_PAGINA}&offset=${historialOffset}${filtrosDelHistorial()}`, {
             headers: authHeaders()
         });
         const data = await res.json();
@@ -499,14 +552,22 @@ async function fetchHistory(anexar = false) {
         if (!anexar) {
             tbody.innerHTML = '';
             if (data.length === 0) {
-                tbody.innerHTML = `
+                tbody.innerHTML = hayFiltrosActivos()
+                    ? `
+                    <tr>
+                        <td colspan="8" class="table-state">
+                            Ninguna propuesta coincide con la búsqueda.
+                        </td>
+                    </tr>
+                    `
+                    : `
                     <tr>
                         <td colspan="8" class="table-state">
                             Aún no hay propuestas. Completa el formulario y pulsa
                             <strong>Generar PPTX</strong> para crear la primera.
                         </td>
                     </tr>
-                `;
+                    `;
                 ['dashboardInvestment', 'dashboardWeeks', 'dashboardRoi', 'dashboardPayback']
                     .forEach(id => {
                         const el = document.getElementById(id);

@@ -1178,6 +1178,20 @@ tr:hover td {
 
 /* Pie de paginación del historial: el listado se carga por páginas de 50
    porque traer cientos de propuestas con su preview_json bloqueaba el render. */
+/*
+ * El atributo `hidden` tiene que ganar SIEMPRE.
+ *
+ * La regla del navegador para [hidden] es `display: none` con la especificidad
+ * más baja que existe, así que cualquier regla propia que fije `display` la
+ * anula sin avisar. Pasó con .history-footer (display:flex): al buscar algo
+ * sin coincidencias el JS ponía pie.hidden = true, el pie seguía en pantalla
+ * y mostraba el texto de la carga anterior — "Mostrando 50 de 403 propuestas"
+ * encima de una tabla vacía. El JS parecía correcto porque lo era.
+ */
+[hidden] {
+    display: none !important;
+}
+
 .history-footer {
     display: flex;
     align-items: center;
@@ -1446,4 +1460,50 @@ tr:hover td {
 .btn-reset-theme:hover {
     color: var(--color-text-bright);
     border-color: var(--color-secondary);
+}
+
+/* --- Filtros del historial --- */
+.history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    align-items: center;
+}
+
+/* El buscador se lleva el espacio sobrante; los desplegables se quedan a su
+   tamaño. El min-width evita que el input se encoja hasta ser inservible
+   cuando los cuatro filtros comparten fila. */
+.input-group--search {
+    flex: 1 1 220px;
+    min-width: 180px;
+}
+
+.history-filters select {
+    flex: 0 1 auto;
+    min-width: 140px;
+    font-size: 0.8rem;
+    padding: 0.5rem 0.7rem;
+}
+
+/* En el desplegable nativo las opciones las pinta el sistema: sin esto, en
+   Windows salen texto blanco sobre fondo blanco. */
+.history-filters select option {
+    background: #10233f;
+    color: #fff;
+}
+
+/* Fuera la 'x' nativa de input[type=search] en WebKit: duplica el botón de
+   limpiar y descuadra el alto respecto a los desplegables. */
+.history-filters input[type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+@media (max-width: 767px) {
+    .history-filters select,
+    .input-group--search {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
 }

@@ -236,3 +236,44 @@ class TestLayoutMovil:
             "conversaciones son inalcanzables en móvil"
         )
         assert 'max-height' in regla
+
+
+class TestElAtributoHiddenOculta:
+    """
+    `hidden` tiene que ganar a cualquier `display` propio.
+
+    La regla del navegador para `[hidden]` es `display: none` con la
+    especificidad más baja que existe, así que basta una regla propia con
+    `display` para anularla en silencio. Pasó con `.history-footer`
+    (`display: flex`): al buscar algo sin coincidencias el JS ponía
+    `pie.hidden = true`, el pie seguía en pantalla y mostraba el recuento de la
+    carga anterior —"Mostrando 50 de 403 propuestas" sobre una tabla vacía—.
+    El JS parecía correcto porque lo era; el fallo estaba en el CSS.
+    """
+
+    def test_existe_la_regla_global(self, style_css):
+        regla = _regla(style_css, '[hidden]')
+        assert 'display: none !important' in regla, (
+            "Sin esta regla, cualquier elemento con `display` propio ignora el "
+            "atributo hidden que pone el JS"
+        )
+
+    def test_ningun_elemento_que_el_js_oculta_queda_sin_cubrir(self):
+        """
+        Los ids que el JS oculta con `.hidden = true` tienen que estar bajo esa
+        regla. Es una comprobación de inventario: si mañana se oculta un
+        elemento nuevo, sigue cubierto por ser global, pero el test documenta
+        cuáles son y falla si alguien la sustituye por parches puntuales.
+        """
+        ocultados = set()
+        for fichero in ('static/index.js', 'static/chatbot.js'):
+            js = io.open(fichero, encoding='utf-8').read()
+            for variable in re.findall(r'(\w+)\.hidden\s*=\s*(?:true|false)', js):
+                ocultados.add(variable)
+        assert ocultados, "no se encontró ningún elemento ocultado desde el JS"
+
+        css = io.open('static/style.css', encoding='utf-8').read()
+        assert re.search(r'\[hidden\]\s*\{[^}]*display:\s*none\s*!important', css), (
+            f"{len(ocultados)} elementos se ocultan desde el JS y dependen de "
+            f"la regla global [hidden]"
+        )

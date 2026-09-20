@@ -5,7 +5,7 @@ import math
 import traceback
 import logging
 from contextlib import closing
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from werkzeug.exceptions import HTTPException
 from flask import Blueprint, request, jsonify, send_file, current_app
 from middleware.auth import require_auth
@@ -39,21 +39,79 @@ proposals_bp = Blueprint('proposals', __name__)
 # aplican de abajo arriba, así que el de más arriba se ejecuta primero. Con el
 # orden contrario, un 401 salía sin pasar por el limitador y se podían probar
 # tokens sin límite (comprobado: 40 intentos fallidos, 0 respuestas 429).
+def _filtros_del_historial(args):
+    """
+    Traduce los parámetros de búsqueda a un WHERE parametrizado.
+
+    Con cientos de propuestas, encontrar la de un cliente concreto obligaba a
+    recorrer página por página. Los filtros son los que un consultor usa de
+    verdad: por quién es, de qué tipo y de cuándo.
+
+    Devuelve (fragmento_sql, parámetros). Siempre parametrizado: el término de
+    búsqueda viene del usuario y va dentro de un LIKE.
+    """
+    condiciones = []
+    parametros = []
+
+    termino = (args.get('q') or '').strip()
+    if termino:
+        # Se buscan razón social y sector a la vez: el consultor recuerda una u
+        # otra. Los comodines de LIKE se escapan para que un nombre con '%' o
+        # '_' no convierta la búsqueda en un comodín accidental.
+        patron = '%' + termino.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
+        condiciones.append("(company_name LIKE ? ESCAPE '\\' OR sector LIKE ? ESCAPE '\\')")
+        parametros += [patron, patron]
+
+    complejidad = (args.get('complejidad') or '').strip()
+    if complejidad in ('Alta', 'Media'):
+        condiciones.append("complexity = ?")
+        parametros.append(complejidad)
+
+    edicion = (args.get('edicion') or '').strip()
+    if edicion in ('Public', 'Private'):
+        condiciones.append("edition = ?")
+        parametros.append(edicion)
+
+    # Antigüedad en días: "las del último mes" es la pregunta habitual.
+    dias = args.get('dias')
+    if dias:
+        try:
+            dias = max(1, min(int(dias), 3650))
+            corte = datetime.now(timezone.utc) - timedelta(days=dias)
+            # El corte se compara como TEXTO contra created_at, que SQLite
+            # escribe con CURRENT_TIMESTAMP: 'YYYY-MM-DD HH:MM:SS' en UTC. Con
+            # .isoformat() el corte llevaba 'T' y offset, y como ' ' < 'T', las
+            # propuestas del propio día del corte quedaban todas fuera: "último
+            # mes" devolvía 29 días. Hay que generar el corte en ESE formato.
+            condiciones.append("created_at >= ?")
+            parametros.append(corte.strftime('%Y-%m-%d %H:%M:%S'))
+        except (TypeError, ValueError):
+            pass  # un valor con basura simplemente no filtra
+
+    where = (" WHERE " + " AND ".join(condiciones)) if condiciones else ""
+    return where, parametros
+
+
+
 @proposals_bp.route('/api/proposals', methods=['GET'])
 @rate_limit
 @require_auth
 def get_proposals():
     try:
         limit, offset = parse_paging(request.args)
+        where, filtros = _filtros_del_historial(request.args)
         with closing(get_db_connection()) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) AS n FROM proposals")
+            # El total respeta el filtro: si no, el pie diría "50 de 405"
+            # mientras la búsqueda solo tiene 3 resultados.
+            cursor.execute("SELECT COUNT(*) AS n FROM proposals" + where, filtros)
             total = cursor.fetchone()['n']
             # created_at puede empatar entre filas generadas en el mismo segundo:
             # el id como segundo criterio evita que la paginación repita o salte filas.
             cursor.execute(
-                "SELECT * FROM proposals ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
-                (limit, offset)
+                "SELECT * FROM proposals" + where +
+                " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                filtros + [limit, offset]
             )
             rows = cursor.fetchall()
             proposals = []
