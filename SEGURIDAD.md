@@ -77,6 +77,12 @@ como evidencia.
 `POST /api/retencion` aplica el plazo de `DIAS_RETENCION` (365 por defecto).
 **Simula por defecto**; hay que enviar `{"confirmar": true}` para borrar.
 
+### Copias de seguridad
+`scripts/backup.py` copia con la API de SQLite (no copiando el fichero: con WAL
+el `.db` por sí solo puede no tener los últimos commits), comprime, **verifica**
+la copia resultante y rota las antiguas. Una copia que nadie ha verificado no es
+una copia: es una suposición.
+
 ### Cadena de suministro
 Dependencias **fijadas con `==`**, auditadas con `pip-audit -r requirements.txt`
 sin vulnerabilidades conocidas.
@@ -110,18 +116,22 @@ Todos corregidos y con test de regresión.
 
 Conviene declararlos: no todo es corregible dentro del alcance y el plan actual.
 
-- **`'unsafe-inline'` en la CSP.** El JavaScript vive dentro de las plantillas
-  HTML (decisión de diseño documentada en `CLAUDE.md`). La CSP sigue aportando:
-  bloquea la carga de scripts de dominios ajenos, que es el vector real.
-  Eliminarlo exige extraer todo el JS a ficheros y aplicar *nonces*.
+- **`'unsafe-inline'` en `style-src`.** Quedan estilos en línea y varios puntos
+  del JS fijan `element.style`. Un estilo inyectado es un vector mucho más débil
+  que un script, y quitarlo exigiría reescribir el frontend entero sin una
+  defensa comparable a cambio. **`script-src` ya no lo lleva**: todo el
+  JavaScript se extrajo a `static/*.js` y la CSP bloquea cualquier script
+  inline inyectado (verificado en el navegador).
 - **Token único compartido.** No hay usuarios individuales, así que el registro
   de auditoría anota el origen de la petición, no una persona. El campo `actor`
   queda previsto para cuando haya login.
 - **Sin cifrado en reposo.** La BBDD es un SQLite en el disco de PythonAnywhere.
   Cifrarlo requeriría SQLCipher y gestión de claves, desproporcionado frente al
   riesgo actual y al plan gratuito.
-- **Sin copia de seguridad automática.** Ver `deploy/RUNBOOK.md` para el
-  procedimiento manual.
+- **La copia de seguridad no se ejecuta sola.** `scripts/backup.py` hace copias
+  consistentes (API de SQLite, no copia del fichero), las comprime, las verifica
+  y las rota — pero **hay que programarlo** como tarea diaria en PythonAnywhere.
+  Ver `deploy/RUNBOOK.md`. Mientras no se programe, esto sigue siendo un riesgo.
 - **Plan gratuito de PythonAnywhere**: la web caduca cada mes si nadie entra, el
   disco son 512 MB (~12 propuestas de 40 MB) y la salida a internet está
   restringida por lista blanca.
@@ -145,7 +155,7 @@ Por orden de importancia:
 ## 6. Cómo verificarlo
 
 ```bash
-python -m pytest tests/test_seguridad.py -q   # 54 comprobaciones de esta guía
+python -m pytest tests/test_seguridad.py -q   # comprobaciones de esta guía
 pip-audit -r requirements.txt                 # vulnerabilidades en dependencias
 ```
 

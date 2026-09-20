@@ -7,6 +7,7 @@ en producción. No son comprobaciones teóricas: todas salieron de medir el
 sistema real (cabeceras ausentes, 40 intentos de token sin bloqueo, 12 MB
 aceptados, metadatos internos dentro del .pptx entregado al cliente).
 """
+import io
 import os
 import re
 import sqlite3
@@ -62,6 +63,40 @@ class TestCabecerasDeSeguridad:
         assert "object-src 'none'" in csp
         assert "base-uri 'self'" in csp
         assert "form-action 'self'" in csp
+
+    def test_la_csp_no_permite_scripts_inline(self, client):
+        """
+        Con 'unsafe-inline' en script-src, un script inyectado se ejecuta igual
+        y la CSP deja de ser una defensa real contra XSS. Todo el JavaScript
+        vive en static/*.js precisamente para poder quitarlo.
+        """
+        csp = client.get('/').headers['Content-Security-Policy']
+        directiva = next(d for d in csp.split(';') if d.strip().startswith('script-src'))
+        assert "'unsafe-inline'" not in directiva, directiva
+        assert "'unsafe-eval'" not in directiva, directiva
+
+    @pytest.mark.parametrize('plantilla', ['templates/index.html', 'templates/chatbot.html'])
+    def test_ninguna_plantilla_lleva_javascript_embebido(self, plantilla):
+        """
+        Si alguien vuelve a meter un <script> con código dentro de una
+        plantilla, el navegador lo bloqueará por CSP y la página se romperá en
+        silencio. Este test lo detecta antes.
+        """
+        import re as _re
+        html = io.open(plantilla, encoding='utf-8').read()
+        inline = _re.findall(r'<script(?![^>]*src=)[^>]*>(.*?)</script>', html, _re.S)
+        con_codigo = [b for b in inline if b.strip()]
+        assert not con_codigo, (
+            f"{plantilla} tiene {len(con_codigo)} bloque(s) de JS embebido; "
+            f"muévelos a static/*.js"
+        )
+
+    @pytest.mark.parametrize('fichero', ['static/index.js', 'static/chatbot.js', 'static/common.js'])
+    def test_los_ficheros_js_existen_y_se_sirven(self, client, fichero):
+        assert os.path.exists(fichero)
+        r = client.get('/' + fichero)
+        assert r.status_code == 200
+        assert len(r.get_data()) > 100
 
     def test_nosniff(self, client):
         assert client.get('/').headers['X-Content-Type-Options'] == 'nosniff'
@@ -506,3 +541,68 @@ class TestProxy:
 
         monkeypatch.delenv('TRUST_PROXY_COUNT', raising=False)
         importlib.reload(modulo_app)
+
+
+# ---------------------------------------------------------------------------
+# Copia de seguridad
+# ---------------------------------------------------------------------------
+class TestCopiaDeSeguridad:
+    """
+    La BBDD guarda el histórico comercial completo y no tenía ninguna copia: un
+    borrado accidental o una purga mal lanzada se lo llevaban todo. Los decks
+    están en .gitignore, así que tampoco hay copia indirecta en el repositorio.
+    """
+
+    def test_la_copia_es_consistente_y_verificable(self, client, tmp_path):
+        """
+        Se copia con la API de SQLite, no copiando el fichero: con WAL activado
+        el .db por sí solo puede no tener los últimos commits.
+        """
+        from scripts import backup
+        client.post('/api/generate', json={
+            'company_name': 'Respaldo S.A.', 'annual_revenue': 24000000})
+
+        ruta = backup.crear_copia(str(tmp_path))
+        assert os.path.exists(ruta)
+
+        ok, detalle = backup.verificar(ruta)
+        assert ok, detalle
+        assert 'propuestas' in detalle
+
+    def test_la_copia_contiene_las_tablas_de_negocio(self, tmp_path):
+        from scripts import backup
+        import gzip
+        import shutil
+        ruta = backup.crear_copia(str(tmp_path))
+        plano = str(tmp_path / 'plano.db')
+        with gzip.open(ruta, 'rb') as f_in, open(plano, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+        con = sqlite3.connect(plano)
+        tablas = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        con.close()
+        assert {'proposals', 'configuracion_comercial', 'chat_sessions', 'auditoria'} <= tablas
+
+    def test_una_copia_corrupta_se_detecta(self, tmp_path):
+        """Una copia que nadie ha verificado no es una copia: es una suposición."""
+        from scripts import backup
+        falsa = tmp_path / 'proposals-20200101-000000.db'
+        falsa.write_bytes(b'esto no es una base de datos sqlite')
+        ok, detalle = backup.verificar(str(falsa))
+        assert ok is False
+        assert detalle
+
+    def test_la_rotacion_conserva_solo_las_mas_recientes(self, tmp_path):
+        from scripts import backup
+        for i in range(5):
+            (tmp_path / f'proposals-2026010{i}-000000.db.gz').write_bytes(b'x')
+        backup.rotar(str(tmp_path), conservar=2)
+        quedan = sorted(f.name for f in tmp_path.iterdir())
+        assert len(quedan) == 2
+        assert quedan == ['proposals-20260103-000000.db.gz',
+                          'proposals-20260104-000000.db.gz'], quedan
+
+    def test_las_copias_no_entran_en_el_repositorio(self):
+        """Contienen datos comerciales de clientes."""
+        contenido = io.open('.gitignore', encoding='utf-8').read()
+        assert 'backups/' in contenido
+        assert '*.db.gz' in contenido

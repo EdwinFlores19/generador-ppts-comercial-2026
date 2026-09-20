@@ -19,6 +19,11 @@ env/
 generated_decks/
 *.pptx
 
+# Copias de seguridad de la BBDD (contienen datos comerciales de clientes:
+# nunca deben acabar en el repositorio)
+backups/
+*.db.gz
+
 # IDE
 .vscode/
 .idea/

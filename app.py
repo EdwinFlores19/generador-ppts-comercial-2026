@@ -16,18 +16,23 @@ log = logging.getLogger("app")
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
-# Política de contenido. Es restrictiva a propósito y encaja con cómo está
-# hecho el frontend hoy:
-#   - 'unsafe-inline' en script-src es inevitable mientras el JS viva dentro de
-#     templates/*.html (decisión documentada en CLAUDE.md). Aun así la CSP sigue
-#     aportando: bloquea la carga de scripts de dominios ajenos, que es el vector
-#     real si algún día se cuela HTML en un campo.
+# Política de contenido.
+#
+#   - script-src es 'self' SIN 'unsafe-inline': todo el JavaScript vive en
+#     static/*.js. Esto es lo que convierte la CSP en una defensa real contra
+#     XSS — con 'unsafe-inline' un script inyectado se ejecutaría igual. Si
+#     alguien vuelve a meter un <script> dentro de una plantilla, el navegador
+#     lo bloqueará y la página dejará de funcionar: es intencionado.
+#   - style-src sí conserva 'unsafe-inline': quedan estilos en línea y varios
+#     puntos del JS fijan `element.style`. Un estilo inyectado es un vector
+#     mucho más débil que un script, y quitarlo exigiría reescribir el frontend
+#     entero sin aportar una defensa comparable.
 #   - Font Awesome y Google Fonts se sirven desde CDN, por eso están permitidos.
 #   - frame-ancestors 'none' es la defensa contra clickjacking que de verdad
 #     respetan los navegadores modernos (X-Frame-Options queda como respaldo).
 CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+    "script-src 'self' https://cdnjs.cloudflare.com; "
     "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
     "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; "
     "img-src 'self' data:; "

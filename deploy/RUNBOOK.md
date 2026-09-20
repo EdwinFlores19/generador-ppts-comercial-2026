@@ -152,6 +152,38 @@ Y antes de editarlo, copia de seguridad:
 cp /var/www/consultoredwinflores_pythonanywhere_com_wsgi.py ~/wsgi_backup_$(date +%F).py
 ```
 
+## Copia de seguridad
+
+`scripts/backup.py` copia la BBDD con la API de SQLite (no copiando el fichero:
+con WAL activado el `.db` por sí solo puede no tener los últimos commits),
+comprime, **verifica** la copia y rota las antiguas.
+
+Manual:
+
+```bash
+cd ~/generador-ppts-comercial-2026 && python scripts/backup.py
+python scripts/backup.py --verificar     # comprueba la última copia
+```
+
+**Programarla** (Tasks → Add a new scheduled task, el plan gratuito permite una
+diaria). Comando exacto:
+
+```
+cd /home/ConsultorEdwinFlores/generador-ppts-comercial-2026 && /home/ConsultorEdwinFlores/venv-seidor/bin/python scripts/backup.py
+```
+
+Las copias van a `backups/` y están en `.gitignore`: contienen datos
+comerciales de clientes y no deben subirse al repositorio. Con 7 copias
+comprimidas el espacio es despreciable (~24 KB cada una) frente a los 512 MB
+del plan.
+
+**Restaurar**: descomprimir y sustituir, con el proceso parado.
+
+```bash
+gunzip -c backups/proposals-AAAAMMDD-HHMMSS.db.gz > proposals.db
+touch /var/www/consultoredwinflores_pythonanywhere_com_wsgi.py
+```
+
 ## Tareas periódicas de cumplimiento
 
 Estas no las hace el sistema solo. Ver `SEGURIDAD.md` para el porqué.

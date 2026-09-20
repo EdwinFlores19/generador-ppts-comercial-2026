@@ -32,6 +32,8 @@ La BBDD y las tablas se crean solas al arrancar (`models/database.py:init_db`).
 | `services/ai_models.py` | Catálogo de variantes de modelo por proveedor |
 | `services/pptx_privacy.py` | Saneado de metadatos del PPTX entregable |
 | `services/auditoria.py` | Registro de auditoría y purga por retención |
+| `scripts/backup.py` | Copia de seguridad consistente, verificada y rotada |
+| `static/index.js`, `static/chatbot.js` | JS de cada pantalla (fuera del HTML por la CSP) |
 | `SEGURIDAD.md` | Datos tratados, controles y riesgos aceptados |
 | `utils/paging.py` | `parse_paging` / `paging_headers` — paginación de los listados |
 | `static/common.js` | `escapeHtml`, `authHeaders`, `fetchJson`, `showToast`, `descargarArchivo` — **compartido** |
@@ -249,7 +251,12 @@ usaba `python-dotenv 1.0.1`, con PYSEC-2026-2270. Antes de subir una versión:
 - Los comentarios explican *por qué*, sobre todo cuando el código evita un bug
   concreto ya sufrido. Conservarlos al refactorizar.
 - Sin mocks en los tests: se generan PPTX de verdad y se valida su estructura.
-- `templates/*.html` llevan el JS embebido; lo compartido va en `common.js`.
+- **Ningún `<script>` con código dentro de las plantillas.** Todo el JavaScript
+  vive en `static/*.js` (`index.js`, `chatbot.js`, y lo compartido en
+  `common.js`). Es lo que permite que la CSP no lleve `'unsafe-inline'` en
+  `script-src`: si alguien vuelve a embeberlo, el navegador lo bloqueará y la
+  página se romperá en silencio. Los valores del servidor llegan por atributos
+  `data-*` del `<body>`, no interpolados dentro del script.
 
 ## Trampas conocidas
 

@@ -158,15 +158,24 @@ class TestIndicadorDeIAHonesto:
         Regresión concreta: la comparación por substring. Si vuelve a aparecer
         un `includes('...motor de IA...')` en la plantilla, este test cae.
         """
-        html = io.open('templates/chatbot.html', encoding='utf-8').read()
-        assert "includes('motor de IA" not in html
-        assert 'ia_disponible' in html, "El frontend debe usar la señal del servidor"
+        js = io.open('static/chatbot.js', encoding='utf-8').read()
+        assert "includes('motor de IA" not in js
+        assert 'ia_disponible' in js, "El frontend debe usar la señal del servidor"
 
     def test_la_plantilla_recibe_la_disponibilidad_en_el_primer_render(self, client):
-        """El estado debe ser honesto antes de que el usuario escriba nada."""
+        """
+        El estado debe ser honesto antes de que el usuario escriba nada.
+
+        Al sacar el JavaScript del HTML (para poder quitar 'unsafe-inline' de la
+        CSP), el valor ya no se interpola dentro del script: viaja como atributo
+        data-* del <body>, que es lo que lee el JS externo.
+        """
         html = client.get('/chatbot').get_data(as_text=True)
-        assert re.search(r'let iaDisponible = (true|false);', html), \
-            "iaDisponible debe quedar resuelto por Jinja en el HTML servido"
+        assert re.search(r'data-ia-disponible="(true|false)"', html), \
+            "La disponibilidad debe resolverse en el HTML servido"
+        js = io.open('static/chatbot.js', encoding='utf-8').read()
+        assert 'document.body.dataset.iaDisponible' in js, \
+            "El JS debe leer la señal del atributo, no de un literal inyectado"
 
     def test_conectado_se_decide_en_un_unico_sitio(self):
         """
@@ -174,13 +183,12 @@ class TestIndicadorDeIAHonesto:
         loadSessions() lo fijaba por su cuenta y pisaba el aviso que acababa de
         mostrar el envío del mensaje.
         """
-        html = io.open('templates/chatbot.html', encoding='utf-8').read()
-        assert html.count("fijarEstado('ok', 'Conectado')") == 1,             "Solo fijarEstadoConectado() debe poder poner 'Conectado'"
-        inicio = html.index('function fijarEstadoConectado()')
-        fin = html.index('function fijarEstado(', inicio)
-        cuerpo_helper = html[inicio:fin]
-        assert "fijarEstado('ok', 'Conectado')" in cuerpo_helper,             "La única ocurrencia debe estar dentro del helper"
-        assert 'fijarEstadoConectado();' in html, "loadSessions debe usar el helper"
+        js = io.open('static/chatbot.js', encoding='utf-8').read()
+        assert js.count("fijarEstado('ok', 'Conectado')") == 1,             "Solo fijarEstadoConectado() debe poder poner 'Conectado'"
+        inicio = js.index('function fijarEstadoConectado()')
+        fin = js.index('function fijarEstado(', inicio)
+        assert "fijarEstado('ok', 'Conectado')" in js[inicio:fin],             "La única ocurrencia debe estar dentro del helper"
+        assert 'fijarEstadoConectado();' in js, "loadSessions debe usar el helper"
 
 
 def _regla(css, selector, dentro_de=None):
