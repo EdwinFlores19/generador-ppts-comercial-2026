@@ -137,6 +137,22 @@ buscador con cientos de filas. Dos detalles que hay que respetar:
   propuestas del propio día del corte quedaban todas fuera ("último mes"
   devolvía 29 días).
 
+**La facturación anual se guarda (`annual_revenue`).** Es el dato de entrada
+del que sale todo el ahorro y el ROI, y antes se perdía: solo quedaba
+`savings_annual`, ya multiplicado por `factor_ahorro`. Sin el original no se
+puede rehacer una propuesta tal cual ni revisar de qué cifra salió un ROI que
+el cliente discute. Las propuestas anteriores traen `null`, **no 0**: el botón
+"Reutilizar" distingue ambos para no rellenar el formulario con una cifra
+inventada.
+
+**"Reutilizar" rellena, no genera.** Carga los datos de una propuesta en el
+formulario y devuelve el control. Cada campo se asigna solo si el valor existe
+como opción del selector: un sector escrito a mano por el chatbot puede no
+estar en la lista, y dejar el `<select>` en un valor inexistente lo pone en
+blanco. La costura frágil es la complejidad: el historial guarda el
+**resultado** (`Alta`) y el formulario pide el **modo** (`alta`); los une un
+`toLowerCase()` y lo cubre `tests/test_interfaz.py::TestReutilizarUnaPropuesta`.
+
 **El atributo `hidden` necesita `[hidden] { display: none !important }`.** La
 regla del navegador tiene la especificidad más baja que existe, así que
 cualquier regla propia con `display` la anula en silencio: `.history-footer`

@@ -187,3 +187,38 @@ class TestElTotalRespetaElFiltro:
         assert len(p1) == 2 and len(p2) == 2
         assert not {f['id'] for f in p1} & {f['id'] for f in p2}
         assert all(f['company_name'].startswith(PREFIJO) for f in p1 + p2)
+
+
+class TestLaFacturacionSeGuarda:
+    """
+    annual_revenue es el dato de entrada del que sale todo el cálculo de ahorro
+    y ROI, y no se guardaba: solo quedaba savings_annual, ya multiplicado por
+    factor_ahorro. Sin el original no se puede rehacer una propuesta tal cual
+    ni revisar de qué cifra salió un ROI que el cliente discute.
+    """
+
+    def test_la_columna_existe(self):
+        con = sqlite3.connect(DB_NAME)
+        columnas = {fila[1] for fila in con.execute("PRAGMA table_info(proposals)")}
+        con.close()
+        assert 'annual_revenue' in columnas
+
+    def test_el_historial_devuelve_la_facturacion_de_una_propuesta_nueva(self, client):
+        resp = client.post('/api/generate', json={
+            'company_name': 'Facturacion Guardada S.A.',
+            'sector': 'Minería y Recursos',
+            'annual_revenue': 42000000,
+            'complexity_mode': 'media',
+        })
+        assert resp.status_code == 200, resp.get_json()
+        fila = client.get('/api/proposals?limit=1&q=Facturacion Guardada').get_json()[0]
+        assert fila['annual_revenue'] == 42000000
+
+    def test_una_propuesta_antigua_devuelve_null_y_no_un_cero(self, client):
+        """
+        El front distingue null de 0: con un 0 rellenaría el formulario con una
+        cifra inventada que el consultor podría no mirar antes de generar.
+        """
+        _insertar(f'{PREFIJO} Sin Facturacion S.A.')
+        fila = client.get(f'/api/proposals?limit=1&q={PREFIJO} Sin Facturacion').get_json()[0]
+        assert fila['annual_revenue'] is None

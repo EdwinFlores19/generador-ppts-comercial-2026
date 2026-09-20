@@ -120,6 +120,13 @@ def init_db():
                 cursor.execute("ALTER TABLE proposals ADD COLUMN theme_id TEXT DEFAULT 'seidor'")
             if 'theme_json' not in proposal_cols:
                 cursor.execute("ALTER TABLE proposals ADD COLUMN theme_json TEXT")
+            # La facturación anual es el dato de entrada del que sale todo el
+            # cálculo de ahorro y ROI, y hasta ahora NO se guardaba: solo
+            # quedaba savings_annual, ya multiplicado por factor_ahorro. Sin el
+            # original no se puede rehacer una propuesta tal cual, ni revisar
+            # de qué cifra salió un ROI que el cliente discute.
+            if 'annual_revenue' not in proposal_cols:
+                cursor.execute("ALTER TABLE proposals ADD COLUMN annual_revenue REAL")
 
             default_params = [
                 ('tarifa_hora_consultor', 60.0, 'Tarifa por hora del consultor SAP en USD'),

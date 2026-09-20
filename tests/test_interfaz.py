@@ -27,6 +27,11 @@ def style_css():
 
 
 @pytest.fixture(scope='module')
+def index_js():
+    return io.open('static/index.js', encoding='utf-8').read()
+
+
+@pytest.fixture(scope='module')
 def chatbot_css():
     return io.open('static/chatbot.css', encoding='utf-8').read()
 
@@ -277,3 +282,54 @@ class TestElAtributoHiddenOculta:
             f"{len(ocultados)} elementos se ocultan desde el JS y dependen de "
             f"la regla global [hidden]"
         )
+
+
+class TestReutilizarUnaPropuesta:
+    """
+    "Reutilizar" carga en el formulario los datos de una propuesta del
+    historial. Lo que se comprueba aquí es la costura frágil: el historial
+    guarda la complejidad como RESULTADO ('Alta') y el formulario pide el MODO
+    ('alta'); los une un .toLowerCase(). Si alguien renombra las opciones del
+    selector, el valor deja de casar, el campo se queda en "automático" y la
+    copia se generaría recalculando otra complejidad — en silencio, porque
+    rellenar el formulario no da error.
+    """
+
+    def test_los_modos_del_selector_cubren_las_complejidades_guardadas(self, client):
+        html = client.get('/').get_data(as_text=True)
+        bloque = re.search(r'<select id="complexityMode".*?</select>', html, re.S)
+        assert bloque, "no se encontró el selector de complejidad"
+        opciones = set(re.findall(r'value="([^"]*)"', bloque.group(0)))
+        # Son las dos que escribe /api/generate en la columna complexity.
+        for guardada in ('Alta', 'Media'):
+            assert guardada.lower() in opciones, (
+                f"la complejidad '{guardada}' del historial no casa con ninguna "
+                f"opción del formulario: al reutilizar se quedaría en automático"
+            )
+
+    def test_solo_asigna_valores_que_el_selector_admite(self, index_js):
+        """
+        Un sector escrito a mano por el chatbot puede no estar en la lista;
+        asignarlo dejaría el <select> en blanco y el formulario no se podría
+        enviar.
+        """
+        assert 'function reutilizarPropuesta' in index_js
+        assert '.options].some(' in index_js, (
+            "cada campo debe comprobarse contra las opciones del selector "
+            "antes de asignarlo"
+        )
+
+    def test_no_inventa_una_facturacion_en_las_propuestas_antiguas(self, index_js):
+        cuerpo = index_js[index_js.index('function reutilizarPropuesta'):]
+        cuerpo = cuerpo[:cuerpo.index('\nfunction ')]
+        assert 'if (prop.annual_revenue)' in cuerpo, (
+            "las propuestas anteriores al guardado de la facturación traen "
+            "null: hay que conservar el valor del campo, no poner un 0"
+        )
+
+    def test_no_genera_nada_por_su_cuenta(self, index_js):
+        """Rellena y devuelve el control: el consultor revisa antes de generar."""
+        cuerpo = index_js[index_js.index('function reutilizarPropuesta'):]
+        cuerpo = cuerpo[:cuerpo.index('\nfunction ')]
+        assert '/api/generate' not in cuerpo
+        assert 'submit()' not in cuerpo

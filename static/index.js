@@ -382,6 +382,54 @@ function actualizarDashboard(latest) {
     document.getElementById('dashboardPayback').innerText = fmtNum(latest.payback_period, ' Años');
 }
 
+/**
+ * Carga los datos de una propuesta en el formulario.
+ *
+ * Una oferta rara vez se presenta una sola vez: se ajusta la facturación, se
+ * cambia de edición o se prueba otro tema, y hasta ahora había que reescribir
+ * los seis campos a mano mirando la fila. No se genera nada: se rellena y se
+ * deja el control al consultor, que revisa antes de pulsar.
+ *
+ * Cada campo se asigna solo si el valor guardado existe como opción del
+ * selector; si no, se respeta lo que ya hubiera. Un sector escrito a mano por
+ * el chatbot puede no estar en la lista, y dejar el <select> en un valor
+ * inexistente lo pondría en blanco.
+ */
+function reutilizarPropuesta(prop) {
+    const asignarSiExiste = (id, valor) => {
+        const el = document.getElementById(id);
+        if (!el || valor === null || valor === undefined || valor === '') return false;
+        const admitido = [...el.options].some(o => o.value === String(valor));
+        if (!admitido) return false;
+        el.value = String(valor);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    };
+
+    document.getElementById('companyName').value = prop.company_name || '';
+    asignarSiExiste('companySector', prop.sector);
+    asignarSiExiste('sapEdition', prop.edition);
+    asignarSiExiste('deckTheme', prop.theme_id);
+    // La complejidad se guarda como resultado ("Alta"), pero el formulario
+    // pide el MODO; reutilizar en "automático" podría recalcular otra cosa y
+    // devolver un deck distinto del que el consultor está copiando.
+    asignarSiExiste('complexityMode', (prop.complexity || '').toLowerCase());
+
+    // annual_revenue solo existe en las propuestas creadas desde que se guarda;
+    // en las antiguas se deja el valor actual del campo en vez de poner un 0
+    // que el consultor podría no ver antes de generar.
+    const revenue = document.getElementById('annualRevenue');
+    if (prop.annual_revenue) revenue.value = prop.annual_revenue;
+
+    document.getElementById('proposalForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('companyName').focus();
+    showToast(
+        prop.annual_revenue
+            ? `Datos de ${prop.company_name} cargados. Revisa y genera.`
+            : `Datos de ${prop.company_name} cargados. Esta propuesta es anterior al guardado de la facturación: revísala.`
+    );
+}
+
 function crearFilaHistorial(prop) {
     const tr = document.createElement('tr');
     tr.dataset.rowId = prop.id;
@@ -424,6 +472,11 @@ function crearFilaHistorial(prop) {
                 <button type="button" class="btn-download" data-download-id="${prop.id}">
                     <i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> Descargar
                 </button>
+                <button type="button" class="btn-row-reuse" data-reuse-id="${prop.id}"
+                        title="Cargar estos datos en el formulario"
+                        aria-label="Reutilizar los datos de ${safeName}">
+                    <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                </button>
                 <button type="button" class="btn-row-delete" data-delete-id="${prop.id}"
                         title="Eliminar del historial"
                         aria-label="Eliminar la propuesta de ${safeName}">
@@ -437,6 +490,9 @@ function crearFilaHistorial(prop) {
     });
     tr.querySelector('[data-delete-id]').addEventListener('click', () => {
         eliminarPropuesta(prop.id, prop.company_name);
+    });
+    tr.querySelector('[data-reuse-id]').addEventListener('click', () => {
+        reutilizarPropuesta(prop);
     });
     // Descarga por fetch (no <a href>) para poder mandar el token.
     const btnDescarga = tr.querySelector('[data-download-id]');

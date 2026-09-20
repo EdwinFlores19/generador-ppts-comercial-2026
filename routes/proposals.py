@@ -131,6 +131,10 @@ def get_proposals():
                     'edition': r['edition'] if 'edition' in row_keys else 'Public',
                     'theme_id': r['theme_id'] if 'theme_id' in row_keys else 'seidor',
                     'sector': r['sector'],
+                    # La facturación no existe en las propuestas anteriores a
+                    # que se guardara: el front distingue null de 0 para no
+                    # rellenar el formulario con una cifra inventada.
+                    'annual_revenue': r['annual_revenue'] if 'annual_revenue' in row_keys else None,
                     'description': r['description'],
                     'active_modules': r['active_modules'],
                     'total_weeks': r['total_weeks'],
@@ -500,14 +504,14 @@ def generate_proposal():
                         company_name, complexity, sector, description, active_modules,
                         total_weeks, total_hours, consulting_cost, licensing_cost, support_cost,
                         total_investment, savings_annual, roi_five_years, payback_period, ppt_path, preview_json,
-                        edition, theme_id, theme_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        edition, theme_id, theme_json, annual_revenue
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     company_name, complexity, sector, description, active_modules_str,
                     summary['total_weeks'], summary['total_hours'], summary['consulting_cost'],
                     summary['licensing_cost'], summary['support_cost'], summary['total_investment'],
                     summary['savings_annual'], summary['roi_five_years'], summary['payback_period'],
-                    ppt_path, preview_json_str, edition, tema['id'], json.dumps(tema)
+                    ppt_path, preview_json_str, edition, tema['id'], json.dumps(tema), revenue
                 ))
                 proposal_id = cursor.lastrowid
 
