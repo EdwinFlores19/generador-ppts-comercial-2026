@@ -165,13 +165,21 @@ cd ~/generador-ppts-comercial-2026 && python scripts/backup.py
 python scripts/backup.py --verificar     # comprueba la última copia
 ```
 
-**Programarla** (Tasks → Add a new scheduled task, el plan gratuito permite una
-diaria). Comando exacto:
+**No se puede programar en el plan gratuito.** La pestaña Tasks de esta cuenta
+dice literalmente que las tareas programadas y las always-on *"only enabled for
+paid accounts"*: no hay la tarea diaria gratuita que otros planes incluyen.
+Comprobado el 2026-09-20.
+
+Así que **la copia es manual**. Comando exacto, ya probado en el servidor:
 
 ```
 cd /home/ConsultorEdwinFlores/generador-ppts-comercial-2026 && /home/ConsultorEdwinFlores/venv-seidor/bin/python scripts/backup.py
 ```
 
+Conviene ejecutarlo al entrar a PythonAnywhere (que ya hay que hacerlo cada
+~1 mes por la caducidad de la web app) y **siempre antes de un `git pull` que
+toque `models/database.py`**, porque ahí es donde corren las migraciones. Si se
+pasa a un plan de pago, el mismo comando se pega tal cual en Tasks.
 Las copias van a `backups/` y están en `.gitignore`: contienen datos
 comerciales de clientes y no deben subirse al repositorio. Con 7 copias
 comprimidas el espacio es despreciable (~24 KB cada una) frente a los 512 MB

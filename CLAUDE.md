@@ -325,6 +325,10 @@ usaba `python-dotenv 1.0.1`, con PYSEC-2026-2270. Antes de subir una versión:
 - **El botón "Reload" de PythonAnywhere no siempre funciona.** Método fiable:
   `touch /var/www/<dominio>_wsgi.py`. Ver `deploy/RUNBOOK.md`.
 - **El plan gratuito apaga la web app cada ~1 mes**: es la causa #1 de caídas.
+- **El plan gratuito no tiene tareas programadas** (Tasks: *"only enabled for
+  paid accounts"*), así que la copia de seguridad de producción es **manual**:
+  hay que lanzar `scripts/backup.py` al entrar, y siempre antes de un `git pull`
+  que toque `models/database.py`, que es donde corren las migraciones.
 - **Los 512 MB de disco ya no son el cuello de botella** desde que el deck pesa
   1,4 MB en vez de 40 MB (~355 propuestas en vez de 12), pero siguen estando.
 - **DuckDuckGo está bloqueado** por la lista blanca del plan gratuito; el
